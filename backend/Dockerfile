@@ -2,12 +2,11 @@
 FROM maven:3.9.6-eclipse-temurin-17-alpine AS builder
 WORKDIR /app
 
-# Cache dependencies
+# Copy pom.xml and source code
 COPY pom.xml .
-RUN mvn dependency:go-offline -B
-
-# Copy source code and build package
 COPY src ./src
+
+# Build production JAR without tests
 RUN mvn clean package -DskipTests -B
 
 # Stage 2: Lightweight runtime image

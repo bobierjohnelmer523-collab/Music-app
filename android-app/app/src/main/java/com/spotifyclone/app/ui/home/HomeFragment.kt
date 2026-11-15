@@ -96,15 +96,18 @@ class HomeFragment : Fragment() {
         recentGridAdapter = RecentGridAdapter(
             items = recentItems,
             onItemClick = { item ->
-                // Play track
-                val track = TrackDto(
-                    youtubeId = item.dataId,
-                    title = item.title,
-                    artist = item.subtitle,
-                    durationSeconds = null,
-                    thumbnailUrl = item.thumbnailUrl
-                )
-                SpotifyApplication.instance.playbackManager.playSingle(track)
+                if (item.type == "playlist") {
+                    loadCustomQuery(item.title)
+                } else {
+                    val track = TrackDto(
+                        youtubeId = item.dataId,
+                        title = item.title,
+                        artist = item.subtitle,
+                        durationSeconds = null,
+                        thumbnailUrl = item.thumbnailUrl
+                    )
+                    SpotifyApplication.instance.playbackManager.playSingle(track)
+                }
             }
         )
 
@@ -190,7 +193,7 @@ class HomeFragment : Fragment() {
                 RecentlyPlayed(title = "Coffeehouse Acoustic", subtitle = "Chill", thumbnailUrl = null, type = "playlist", dataId = "PLCHILL456")
             )
             for (item in defaults) {
-                SpotifyApplication.instance.database.recentlyPlayedDao().insert(item)
+                SpotifyApplication.instance.database.recentlyPlayedDao().recordRecentlyPlayed(item)
             }
         }
     }

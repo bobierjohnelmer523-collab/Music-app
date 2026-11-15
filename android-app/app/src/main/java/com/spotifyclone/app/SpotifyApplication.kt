@@ -21,6 +21,9 @@ class SpotifyApplication : Application() {
     lateinit var updateManager: AppUpdateManager
         private set
 
+    lateinit var connectionManager: com.spotifyclone.app.api.BackendConnectionManager
+        private set
+
     companion object {
         lateinit var instance: SpotifyApplication
             private set
@@ -44,5 +47,8 @@ class SpotifyApplication : Application() {
 
         // 5. Initialize App Update Manager
         updateManager = AppUpdateManager(this)
+
+        // 6. Initialize Neon + Render Connection Monitor
+        connectionManager = com.spotifyclone.app.api.BackendConnectionManager(this)
     }
 }

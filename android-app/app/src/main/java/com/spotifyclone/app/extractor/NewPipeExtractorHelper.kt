@@ -3,6 +3,7 @@ package com.spotifyclone.app.extractor
 import com.spotifyclone.app.model.TrackDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -17,17 +18,27 @@ import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 object NewPipeExtractorHelper {
 
     private var initialized = false
 
+    // Cache resolved stream URLs: Key = youtubeId, Value = Pair(streamUrl, expiryTimestampMs)
+    // YouTube stream tokens typically expire in 6 hours; we cache for 4 hours
+    private val streamUrlCache = ConcurrentHashMap<String, Pair<String, Long>>()
+    private const val CACHE_TTL_MS = 4 * 60 * 60 * 1000L
+
+    private const val DEFAULT_USER_AGENT =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
     fun init() {
         if (initialized) return
         val okHttpClient = OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
+            .connectionPool(ConnectionPool(10, 5, TimeUnit.MINUTES))
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
             .build()
 
         val downloader = object : Downloader() {
@@ -39,9 +50,16 @@ object NewPipeExtractorHelper {
                 val dataToSend = request.dataToSend()
 
                 val reqBuilder = Request.Builder().url(url)
+
+                var hasUserAgent = false
                 headers.forEach { (key, values) ->
+                    if (key.equals("User-Agent", ignoreCase = true)) hasUserAgent = true
                     values.forEach { v -> reqBuilder.addHeader(key, v) }
                 }
+                if (!hasUserAgent) {
+                    reqBuilder.addHeader("User-Agent", DEFAULT_USER_AGENT)
+                }
+                reqBuilder.addHeader("Accept-Language", "en-US,en;q=0.9")
 
                 when (httpMethod) {
                     "POST" -> {
@@ -89,21 +107,23 @@ object NewPipeExtractorHelper {
 
             for (item in items) {
                 if (item is StreamInfoItem) {
-                    results.add(
-                        TrackDto(
-                            youtubeId = item.url.substringAfter("v=").substringBefore("&"),
-                            title = item.name ?: "Unknown Title",
-                            artist = item.uploaderName ?: "Unknown Artist",
-                            durationSeconds = item.duration,
-                            thumbnailUrl = item.thumbnails.firstOrNull()?.url
+                    val id = item.url.substringAfter("v=").substringBefore("&")
+                    if (id.isNotEmpty()) {
+                        results.add(
+                            TrackDto(
+                                youtubeId = id,
+                                title = item.name ?: "Unknown Title",
+                                artist = item.uploaderName ?: "Unknown Artist",
+                                durationSeconds = item.duration,
+                                thumbnailUrl = item.thumbnails.firstOrNull()?.url
+                            )
                         )
-                    )
+                    }
                 }
             }
 
             Result.success(results)
         } catch (e: ParsingException) {
-            // Parsing failure (e.g. YouTube parser format changed)
             Result.failure(SourceBrokenException("YouTube Music parser broken: parsing error", e))
         } catch (e: ExtractionException) {
             Result.failure(SourceBrokenException("YouTube Music extraction failed", e))
@@ -114,9 +134,16 @@ object NewPipeExtractorHelper {
 
     /**
      * Resolve a direct audio stream URL just-in-time before playback starts.
-     * This ensures the expiring token in the audio stream URL is fresh.
+     * Uses memory cache to provide 0ms latency on repeated plays and pre-resolved songs.
      */
     suspend fun resolveStreamUrl(youtubeId: String): Result<String> = withContext(Dispatchers.IO) {
+        // 1. Check in-memory cache for valid unexpired URL
+        val now = System.currentTimeMillis()
+        val cached = streamUrlCache[youtubeId]
+        if (cached != null && cached.second > now) {
+            return@withContext Result.success(cached.first)
+        }
+
         try {
             init()
             val service = ServiceList.YouTube
@@ -128,14 +155,20 @@ object NewPipeExtractorHelper {
                 return@withContext Result.failure(SourceBrokenException("No audio streams available for track $youtubeId"))
             }
 
-            // Pick the highest bitrate stream
-            val bestAudioStream = audioStreams.maxByOrNull { it.averageBitrate }
+            // Pick M4A/AAC stream if available for faster instant decoding, or highest bitrate
+            val bestAudioStream = audioStreams
+                .filter { it.format?.name.equals("M4A", ignoreCase = true) || it.url?.contains(".m4a") == true }
+                .maxByOrNull { it.averageBitrate }
+                ?: audioStreams.maxByOrNull { it.averageBitrate }
                 ?: audioStreams.first()
 
             val streamUrl = bestAudioStream.url
             if (streamUrl.isNullOrEmpty()) {
                 return@withContext Result.failure(SourceBrokenException("Resolved audio stream URL is empty"))
             }
+
+            // Store in cache for 4 hours
+            streamUrlCache[youtubeId] = Pair(streamUrl, now + CACHE_TTL_MS)
 
             Result.success(streamUrl)
         } catch (e: ParsingException) {

@@ -47,6 +47,52 @@
             android:text="Update" />
     </LinearLayout>
 
+    <!-- Connection Status Pill / WiFi-style Indicator (Neon + Render) -->
+    <LinearLayout
+        android:id="@+id/layout_connection_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@drawable/bg_connection_banner"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        android:layout_marginTop="8dp"
+        android:elevation="8dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/banner_source_broken"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ProgressBar
+            android:id="@+id/progress_connection_status"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:indeterminateTint="@color/spotify_green"
+            android:indeterminate="true"
+            android:layout_marginEnd="6dp" />
+
+        <ImageView
+            android:id="@+id/icon_connection_status"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:src="@drawable/ic_wifi_status"
+            android:layout_marginEnd="6dp"
+            android:visibility="gone"
+            app:tint="@color/spotify_green" />
+
+        <TextView
+            android:id="@+id/text_connection_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/spotify_white"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:text="Connecting to Neon + Render..." />
+    </LinearLayout>
+
     <!-- Main Content Container for Fragments -->
     <FrameLayout
         android:id="@+id/fragment_container"

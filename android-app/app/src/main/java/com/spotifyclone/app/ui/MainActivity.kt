@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity() {
         setupMiniPlayer()
         setupSourceBrokenBanner()
         observePlaybackState()
+        observeConnectionStatus()
 
         // Check for updates on startup
         updateManager.checkForUpdates(this, isManual = false)
@@ -126,6 +127,58 @@ class MainActivity : AppCompatActivity() {
                     updateManager.checkForUpdates(this@MainActivity, isManual = false)
                 }
             }
+        }
+    }
+
+    private fun observeConnectionStatus() {
+        val connManager = SpotifyApplication.instance.connectionManager
+        lifecycleScope.launch {
+            connManager.status.collectLatest { status ->
+                when (status.state) {
+                    com.spotifyclone.app.api.ConnectionState.IDLE -> {
+                        binding.layoutConnectionStatus.animate()
+                            .alpha(0f)
+                            .setDuration(400)
+                            .withEndAction {
+                                binding.layoutConnectionStatus.visibility = View.GONE
+                                binding.layoutConnectionStatus.alpha = 1f
+                            }
+                            .start()
+                    }
+                    com.spotifyclone.app.api.ConnectionState.CONNECTING,
+                    com.spotifyclone.app.api.ConnectionState.SERVER_WAKING -> {
+                        binding.layoutConnectionStatus.visibility = View.VISIBLE
+                        binding.layoutConnectionStatus.alpha = 1f
+                        binding.progressConnectionStatus.visibility = View.VISIBLE
+                        binding.iconConnectionStatus.visibility = View.GONE
+                        binding.textConnectionStatus.text = status.message
+                    }
+                    com.spotifyclone.app.api.ConnectionState.CONNECTED -> {
+                        binding.layoutConnectionStatus.visibility = View.VISIBLE
+                        binding.layoutConnectionStatus.alpha = 1f
+                        binding.progressConnectionStatus.visibility = View.GONE
+                        binding.iconConnectionStatus.visibility = View.VISIBLE
+                        binding.iconConnectionStatus.setColorFilter(
+                            getColor(R.color.spotify_green)
+                        )
+                        binding.textConnectionStatus.text = status.message
+                    }
+                    com.spotifyclone.app.api.ConnectionState.OFFLINE -> {
+                        binding.layoutConnectionStatus.visibility = View.VISIBLE
+                        binding.layoutConnectionStatus.alpha = 1f
+                        binding.progressConnectionStatus.visibility = View.GONE
+                        binding.iconConnectionStatus.visibility = View.VISIBLE
+                        binding.iconConnectionStatus.setColorFilter(
+                            getColor(R.color.spotify_light_grey)
+                        )
+                        binding.textConnectionStatus.text = status.message
+                    }
+                }
+            }
+        }
+
+        binding.layoutConnectionStatus.setOnClickListener {
+            connManager.checkConnection()
         }
     }
 }

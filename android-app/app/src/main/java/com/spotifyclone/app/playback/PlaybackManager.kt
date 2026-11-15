@@ -5,9 +5,13 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.widget.Toast
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.spotifyclone.app.SpotifyApplication
 import com.spotifyclone.app.extractor.NewPipeExtractorHelper
 import com.spotifyclone.app.extractor.SourceBrokenException
@@ -85,7 +89,31 @@ class PlaybackManager(private val context: Context) {
     }
 
     private fun initPlayer() {
-        exoPlayer = ExoPlayer.Builder(context).build().apply {
+        val userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent(userAgent)
+            .setConnectTimeoutMs(15000)
+            .setReadTimeoutMs(15000)
+            .setAllowCrossProtocolRedirects(true)
+
+        val mediaSourceFactory = DefaultMediaSourceFactory(context)
+            .setDataSourceFactory(httpDataSourceFactory)
+
+        // Low-latency load control: starts playback after just 1 second buffer instead of 50s!
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                15_000, // minBufferMs
+                50_000, // maxBufferMs
+                1_000,  // bufferForPlaybackMs (instant startup)
+                2_000   // bufferForPlaybackAfterRebufferMs
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+
+        exoPlayer = ExoPlayer.Builder(context)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .setLoadControl(loadControl)
+            .build().apply {
             addListener(object : Player.Listener {
                 override fun onIsPlayingChanged(playing: Boolean) {
                     _isPlaying.value = playing
@@ -169,9 +197,9 @@ class PlaybackManager(private val context: Context) {
             repeatCountRemaining = 1
         }
 
-        // Record in recently played
+        // Record in recently played (deduplicated & pushed to position 0)
         scope.launch(Dispatchers.IO) {
-            SpotifyApplication.instance.database.recentlyPlayedDao().insert(
+            SpotifyApplication.instance.database.recentlyPlayedDao().recordRecentlyPlayed(
                 com.spotifyclone.app.data.local.entities.RecentlyPlayed(
                     title = track.title,
                     subtitle = track.artist ?: "Unknown Artist",
@@ -215,8 +243,24 @@ class PlaybackManager(private val context: Context) {
                 }
                 _isSourceBroken.value = false
 
+                // 4. Asynchronously pre-fetch next track in background for 0ms delay on skip/next
+                val nextIdx = currentIndex + 1
+                if (nextIdx in playlist.indices) {
+                    val nextTrack = playlist[nextIdx]
+                    scope.launch(Dispatchers.IO) {
+                        try {
+                            NewPipeExtractorHelper.resolveStreamUrl(nextTrack.youtubeId)
+                        } catch (e: Exception) {
+                            // Non-fatal prefetch failure
+                        }
+                    }
+                }
+
             } catch (e: Exception) {
                 Log.e("PlaybackManager", "Failed to play current track", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Could not play track: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
                 if (e is SourceBrokenException) {
                     _isSourceBroken.value = true
                 }
