@@ -197,6 +197,10 @@ class LibraryFragment : Fragment() {
                         SpotifyApplication.instance.database.playlistDao().insert(
                             LocalPlaylist(remoteId = created.id, title = created.title, description = created.description)
                         )
+                    } else {
+                        SpotifyApplication.instance.database.playlistDao().insert(
+                            LocalPlaylist(title = title, isOfflineOnly = true)
+                        )
                     }
                 } else {
                     SpotifyApplication.instance.database.playlistDao().insert(
@@ -204,6 +208,7 @@ class LibraryFragment : Fragment() {
                     )
                 }
 
+                loadLocalPlaylistsInternal()
                 syncPlaylistsWithBackend()
 
             } catch (e: Exception) {
@@ -228,16 +233,44 @@ class LibraryFragment : Fragment() {
     }
 
     private fun deletePlaylist(playlist: PlaylistDto) {
+        // 1. Immediate optimistic UI removal so user sees instant feedback
+        val itemIndex = playlists.indexOfFirst { it.id == playlist.id || it.title == playlist.title }
+        if (itemIndex != -1) {
+            playlists.removeAt(itemIndex)
+            playlistAdapter.updatePlaylists(playlists.toList())
+        }
+        Toast.makeText(context, "Playlist \"${playlist.title}\" deleted", Toast.LENGTH_SHORT).show()
+
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                if (ApiClient.isLoggedIn() && playlist.id > 0) {
-                    ApiClient.getApi().deletePlaylist(playlist.id)
+                val db = SpotifyApplication.instance.database
+
+                // 2. Find local playlist in Room by remoteId, id, or title
+                val local = db.playlistDao().getPlaylistByRemoteId(playlist.id)
+                    ?: db.playlistDao().getPlaylistById(playlist.id)
+                    ?: db.playlistDao().getPlaylistByTitle(playlist.title)
+
+                val remoteIdToDelete = local?.remoteId ?: if (playlist.id > 0) playlist.id else null
+
+                // 3. Delete from backend if logged in and has valid remoteId
+                if (ApiClient.isLoggedIn() && remoteIdToDelete != null) {
+                    try {
+                        ApiClient.getApi().deletePlaylist(remoteIdToDelete)
+                    } catch (_: Exception) {}
                 }
-                val local = SpotifyApplication.instance.database.playlistDao().getPlaylistByRemoteId(playlist.id)
+
+                // 4. Delete from Room database (playlist + tracks)
                 if (local != null) {
-                    SpotifyApplication.instance.database.playlistDao().delete(local)
+                    db.trackDao().deleteTracksForPlaylist(local.id)
+                    db.playlistDao().delete(local)
+                } else {
+                    db.playlistDao().deleteByIdOrRemoteIdOrTitle(playlist.id, playlist.title)
                 }
+
+                // 5. Reload and sync
+                loadLocalPlaylistsInternal()
                 syncPlaylistsWithBackend()
+
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Error deleting playlist: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -246,52 +279,68 @@ class LibraryFragment : Fragment() {
         }
     }
 
+    private suspend fun loadLocalPlaylistsInternal() {
+        val db = SpotifyApplication.instance.database
+        val localList = db.playlistDao().getAllPlaylistsOnce()
+        val dtos = localList.map { p ->
+            val tracks = db.trackDao().getTracksForPlaylistSync(p.id)
+            PlaylistDto(
+                id = p.remoteId ?: p.id,
+                title = p.title,
+                description = p.description,
+                createdAt = null,
+                updatedAt = null,
+                tracks = tracks.map { t ->
+                    com.spotifyclone.app.model.TrackDto(
+                        id = t.id,
+                        youtubeId = t.youtubeId,
+                        title = t.title,
+                        artist = t.artist,
+                        durationSeconds = t.durationSeconds,
+                        thumbnailUrl = t.thumbnailUrl,
+                        position = t.position
+                    )
+                }
+            )
+        }
+
+        withContext(Dispatchers.Main) {
+            binding.progressLibrary.visibility = View.GONE
+            playlists.clear()
+            playlists.addAll(dtos)
+            playlistAdapter.updatePlaylists(playlists.toList())
+        }
+    }
+
     private fun loadLocalPlaylistsThenSync() {
         lifecycleScope.launch(Dispatchers.IO) {
-            val localList = SpotifyApplication.instance.database.playlistDao().getAllPlaylists().first()
-            val dtos = localList.map { p ->
-                val tracks = SpotifyApplication.instance.database.trackDao().getTracksForPlaylistSync(p.id)
-                PlaylistDto(
-                    id = p.remoteId ?: p.id,
-                    title = p.title,
-                    description = p.description,
-                    createdAt = null,
-                    updatedAt = null,
-                    tracks = tracks.map { t ->
-                        com.spotifyclone.app.model.TrackDto(
-                            id = t.id,
-                            youtubeId = t.youtubeId,
-                            title = t.title,
-                            artist = t.artist,
-                            durationSeconds = t.durationSeconds,
-                            thumbnailUrl = t.thumbnailUrl,
-                            position = t.position
-                        )
-                    }
-                )
-            }
-
-            withContext(Dispatchers.Main) {
-                playlists.clear()
-                playlists.addAll(dtos)
-                playlistAdapter.updatePlaylists(playlists)
-            }
-
+            loadLocalPlaylistsInternal()
             syncPlaylistsWithBackend()
         }
     }
 
     private fun syncPlaylistsWithBackend() {
         if (!ApiClient.isLoggedIn()) return
-        binding.progressLibrary.visibility = View.VISIBLE
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val response = ApiClient.getApi().getPlaylists()
                 if (response.isSuccessful && response.body() != null) {
                     val remotePlaylists = response.body()!!
+                    val remoteIds = remotePlaylists.map { it.id }.toSet()
 
                     val db = SpotifyApplication.instance.database
+
+                    // Prune local playlists that were deleted on the remote server
+                    val allLocal = db.playlistDao().getAllPlaylistsOnce()
+                    for (localP in allLocal) {
+                        if (localP.remoteId != null && !remoteIds.contains(localP.remoteId)) {
+                            db.trackDao().deleteTracksForPlaylist(localP.id)
+                            db.playlistDao().delete(localP)
+                        }
+                    }
+
+                    // Upsert remote playlists and their tracks
                     for (remote in remotePlaylists) {
                         val existing = db.playlistDao().getPlaylistByRemoteId(remote.id)
                         val localId = if (existing == null) {
@@ -317,22 +366,9 @@ class LibraryFragment : Fragment() {
                         db.trackDao().insertAll(tracksToInsert)
                     }
 
-                    withContext(Dispatchers.Main) {
-                        binding.progressLibrary.visibility = View.GONE
-                        playlists.clear()
-                        playlists.addAll(remotePlaylists)
-                        playlistAdapter.updatePlaylists(playlists)
-                    }
-                } else {
-                    withContext(Dispatchers.Main) {
-                        binding.progressLibrary.visibility = View.GONE
-                    }
+                    loadLocalPlaylistsInternal()
                 }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    binding.progressLibrary.visibility = View.GONE
-                }
-            }
+            } catch (_: Exception) {}
         }
     }
 

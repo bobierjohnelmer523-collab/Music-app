@@ -304,6 +304,29 @@ class DownloadsFragment : Fragment() {
                     renderFolderChips()
                     filterTracksForCurrentFolder()
                 }
+
+                if (name != "All") {
+                    setOnLongClickListener {
+                        CustomDialogHelper.showConfirmDialog(
+                            context = requireContext(),
+                            title = "Delete Offline Folder",
+                            message = "Are you sure you want to delete the folder \"$name\"?",
+                            confirmText = "Delete",
+                            isDestructive = true
+                        ) {
+                            lifecycleScope.launch(Dispatchers.IO) {
+                                SpotifyApplication.instance.database.offlineFolderDao().deleteFolder(name)
+                                withContext(Dispatchers.Main) {
+                                    if (currentSelectedFolder == name) {
+                                        currentSelectedFolder = "All"
+                                    }
+                                    Toast.makeText(context, "Folder \"$name\" deleted", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                        true
+                    }
+                }
             }
             container.addView(chip)
         }
