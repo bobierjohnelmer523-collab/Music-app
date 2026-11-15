@@ -124,12 +124,7 @@ class HomeFragment : Fragment() {
                 SpotifyApplication.instance.playbackManager.playQueue(quickPicks, position)
             },
             onMenuClick = { track ->
-                SpotifyApplication.instance.downloadHelper.downloadTrack(track) { success ->
-                    activity?.runOnUiThread {
-                        val msg = if (success) "Track downloaded for offline playback!" else "Download failed"
-                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                    }
-                }
+                com.spotifyclone.app.ui.dialog.TrackOptionsHelper.showTrackOptions(requireContext(), track)
             }
         )
 
@@ -199,7 +194,35 @@ class HomeFragment : Fragment() {
     }
 
     private fun loadQuickPicks() {
-        loadCustomQuery("Top Hits 2024")
+        lifecycleScope.launch(Dispatchers.IO) {
+            val likedSongs = SpotifyApplication.instance.database.likedSongDao().getAllLikedSongsOnce()
+            val algorithmQuery = if (likedSongs.isNotEmpty()) {
+                val artists = likedSongs.mapNotNull { it.artist }.filter { it.isNotBlank() }
+                val favArtist = artists.randomOrNull()
+
+                val isPinoyOrRap = likedSongs.any {
+                    it.title.contains("rap", ignoreCase = true) ||
+                    it.title.contains("kase", ignoreCase = true) ||
+                    it.title.contains("opm", ignoreCase = true) ||
+                    (it.artist?.contains("battalion", ignoreCase = true) == true) ||
+                    (it.artist?.contains("james", ignoreCase = true) == true)
+                }
+
+                if (isPinoyOrRap && favArtist != null) {
+                    "$favArtist OPM Rap mix"
+                } else if (favArtist != null) {
+                    "$favArtist mix songs"
+                } else {
+                    "Top Songs Philippines"
+                }
+            } else {
+                "Top Hits Philippines 2024"
+            }
+
+            withContext(Dispatchers.Main) {
+                loadCustomQuery(algorithmQuery)
+            }
+        }
     }
 
     private fun loadCustomQuery(query: String) {

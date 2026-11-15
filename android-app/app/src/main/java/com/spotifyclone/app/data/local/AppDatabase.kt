@@ -6,11 +6,13 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.spotifyclone.app.data.local.dao.BlacklistedTrackDao
 import com.spotifyclone.app.data.local.dao.DownloadedTrackDao
+import com.spotifyclone.app.data.local.dao.LikedSongDao
 import com.spotifyclone.app.data.local.dao.PlaylistDao
 import com.spotifyclone.app.data.local.dao.RecentlyPlayedDao
 import com.spotifyclone.app.data.local.dao.TrackDao
 import com.spotifyclone.app.data.local.entities.BlacklistedTrack
 import com.spotifyclone.app.data.local.entities.DownloadedTrack
+import com.spotifyclone.app.data.local.entities.LikedSong
 import com.spotifyclone.app.data.local.entities.LocalPlaylist
 import com.spotifyclone.app.data.local.entities.LocalTrack
 import com.spotifyclone.app.data.local.entities.RecentlyPlayed
@@ -21,9 +23,10 @@ import com.spotifyclone.app.data.local.entities.RecentlyPlayed
         LocalTrack::class,
         DownloadedTrack::class,
         BlacklistedTrack::class,
-        RecentlyPlayed::class
+        RecentlyPlayed::class,
+        LikedSong::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -33,6 +36,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun downloadedTrackDao(): DownloadedTrackDao
     abstract fun blacklistedTrackDao(): BlacklistedTrackDao
     abstract fun recentlyPlayedDao(): RecentlyPlayedDao
+    abstract fun likedSongDao(): LikedSongDao
 
     companion object {
         @Volatile

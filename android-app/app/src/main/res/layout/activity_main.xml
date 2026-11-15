@@ -90,7 +90,16 @@
             android:textColor="@color/spotify_white"
             android:textSize="11sp"
             android:textStyle="bold"
-            android:text="Connecting to Neon + Render..." />
+            android:text="Connecting" />
+
+        <ImageView
+            android:id="@+id/btn_close_connection_status"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginStart="8dp"
+            android:padding="2dp"
+            android:src="@drawable/ic_close"
+            app:tint="@color/spotify_light_grey" />
     </LinearLayout>
 
     <!-- Main Content Container for Fragments -->

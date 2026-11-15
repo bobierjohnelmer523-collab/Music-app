@@ -49,6 +49,7 @@ class LibraryFragment : Fragment() {
         setupRecyclerView()
         setupListeners()
         updateAccountStatus()
+        observeLikedSongsCount()
         observeDownloadsCount()
         loadLocalPlaylistsThenSync()
     }
@@ -94,6 +95,16 @@ class LibraryFragment : Fragment() {
             .show()
     }
 
+    private fun observeLikedSongsCount() {
+        lifecycleScope.launch {
+            SpotifyApplication.instance.database.likedSongDao()
+                .getLikedCount()
+                .collectLatest { count ->
+                    binding.textLikedSongsCount.text = "Playlist • $count ${if (count == 1) "song" else "songs"}"
+                }
+        }
+    }
+
     private fun observeDownloadsCount() {
         lifecycleScope.launch {
             SpotifyApplication.instance.database.downloadedTrackDao()
@@ -127,6 +138,14 @@ class LibraryFragment : Fragment() {
     }
 
     private fun setupListeners() {
+        // Pre-built Liked Songs opens LikedSongsFragment
+        binding.cardLikedSongsPlaylist.setOnClickListener {
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, LikedSongsFragment())
+                .addToBackStack(null)
+                .commit()
+        }
+
         // Downloaded Songs playlist card opens DownloadsFragment
         binding.cardDownloadedPlaylist.setOnClickListener {
             parentFragmentManager.beginTransaction()

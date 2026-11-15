@@ -17,8 +17,7 @@ enum class ConnectionState {
     IDLE,
     CONNECTING,
     CONNECTED,
-    SERVER_WAKING,
-    OFFLINE
+    UNREACHABLE
 }
 
 data class ConnectionStatus(
@@ -31,16 +30,17 @@ class BackendConnectionManager(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val _status = MutableStateFlow(
-        ConnectionStatus(ConnectionState.CONNECTING, "Connecting to Neon + Render...")
+        ConnectionStatus(ConnectionState.CONNECTING, "Connecting")
     )
     val status: StateFlow<ConnectionStatus> = _status
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(8, TimeUnit.SECONDS)
-        .readTimeout(8, TimeUnit.SECONDS)
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(6, TimeUnit.SECONDS)
         .build()
 
     private var checkJob: Job? = null
+    private var dismissJob: Job? = null
 
     init {
         registerNetworkCallback()
@@ -61,24 +61,34 @@ class BackendConnectionManager(private val context: Context) {
             }
 
             override fun onLost(network: Network) {
-                _status.value = ConnectionStatus(
-                    ConnectionState.OFFLINE,
-                    "No internet connection (Offline mode active)"
-                )
+                setResult(ConnectionState.UNREACHABLE, "Unreachable")
             }
         })
     }
 
+    fun dismiss() {
+        dismissJob?.cancel()
+        _status.value = ConnectionStatus(ConnectionState.IDLE, "")
+    }
+
+    private fun setResult(state: ConnectionState, message: String) {
+        dismissJob?.cancel()
+        _status.value = ConnectionStatus(state, message)
+        // Automatically close and go away after 4 seconds
+        dismissJob = scope.launch {
+            delay(4000)
+            _status.value = ConnectionStatus(ConnectionState.IDLE, "")
+        }
+    }
+
     fun checkConnection() {
         checkJob?.cancel()
+        dismissJob?.cancel()
         checkJob = scope.launch {
-            _status.value = ConnectionStatus(
-                ConnectionState.CONNECTING,
-                "Connecting to Neon + Render..."
-            )
+            _status.value = ConnectionStatus(ConnectionState.CONNECTING, "Connecting")
 
             var attempts = 0
-            val maxAttempts = 6
+            val maxAttempts = 3
             var connected = false
 
             while (attempts < maxAttempts && !connected) {
@@ -92,39 +102,19 @@ class BackendConnectionManager(private val context: Context) {
                     val response = client.newCall(request).execute()
                     if (response.isSuccessful || response.code == 401 || response.code == 403 || response.code == 404) {
                         connected = true
-                        _status.value = ConnectionStatus(
-                            ConnectionState.CONNECTED,
-                            "Connected to Neon Database & Render"
-                        )
-                        // After 3.5 seconds, set to IDLE so the banner smoothly fades away
-                        delay(3500)
-                        if (_status.value.state == ConnectionState.CONNECTED) {
-                            _status.value = ConnectionStatus(ConnectionState.IDLE, "")
-                        }
+                        setResult(ConnectionState.CONNECTED, "Connected")
                         return@launch
-                    } else {
-                        _status.value = ConnectionStatus(
-                            ConnectionState.SERVER_WAKING,
-                            "Waking up Render backend (attempt $attempts)..."
-                        )
                     }
                 } catch (e: Exception) {
-                    Log.w("BackendConnManager", "Connection ping failed (attempt $attempts): ${e.message}")
-                    if (attempts == 1) {
-                        _status.value = ConnectionStatus(
-                            ConnectionState.SERVER_WAKING,
-                            "Waking up Render backend (cold start ~30s)..."
-                        )
-                    }
+                    Log.w("BackendConnManager", "Connection ping failed attempt $attempts: ${e.message}")
                 }
-                delay(4000)
+                if (attempts < maxAttempts) {
+                    delay(2000)
+                }
             }
 
             if (!connected) {
-                _status.value = ConnectionStatus(
-                    ConnectionState.OFFLINE,
-                    "Backend unreachable - Using local offline database"
-                )
+                setResult(ConnectionState.UNREACHABLE, "Unreachable")
             }
         }
     }

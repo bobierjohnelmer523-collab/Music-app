@@ -187,6 +187,14 @@ class PlaybackManager(private val context: Context) {
         prepareAndPlayCurrent()
     }
 
+    fun addToQueue(track: TrackDto) {
+        if (playlist.isEmpty()) {
+            playSingle(track)
+        } else {
+            playlist.add(track)
+        }
+    }
+
     private fun prepareAndPlayCurrent() {
         if (currentIndex !in playlist.indices) return
         val track = playlist[currentIndex]

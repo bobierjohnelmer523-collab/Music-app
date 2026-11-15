@@ -60,8 +60,8 @@
         android:layout_width="36dp"
         android:layout_height="36dp"
         android:background="?selectableItemBackgroundBorderless"
-        android:src="@drawable/ic_library"
+        android:src="@drawable/ic_more_vert"
         app:tint="@color/spotify_light_grey"
-        android:contentDescription="Add to playlist" />
+        android:contentDescription="Song options" />
 
 </LinearLayout>

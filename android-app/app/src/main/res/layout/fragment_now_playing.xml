@@ -210,16 +210,47 @@
             android:src="@drawable/ic_skip_next"
             app:tint="@color/spotify_white" />
 
-        <!-- Download button next to next button -->
-        <ImageButton
-            android:id="@+id/btn_download_track"
+        <!-- Download button / progress next to next button -->
+        <FrameLayout
             android:layout_width="0dp"
             android:layout_height="44dp"
-            android:layout_weight="1"
-            android:background="?selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_download"
-            app:tint="@color/spotify_white"
-            android:contentDescription="Download for Offline Playback" />
+            android:layout_weight="1">
+
+            <ImageButton
+                android:id="@+id/btn_download_track"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="?selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_download"
+                app:tint="@color/spotify_white"
+                android:contentDescription="Download for Offline Playback" />
+
+            <FrameLayout
+                android:id="@+id/layout_download_progress"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone">
+
+                <ProgressBar
+                    android:id="@+id/progress_circle_download"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:progressDrawable="@drawable/circle_progress"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_gravity="center"
+                    android:max="100" />
+
+                <TextView
+                    android:id="@+id/text_download_percent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:textSize="9sp"
+                    android:textColor="@color/spotify_green"
+                    android:textStyle="bold"
+                    android:text="0%" />
+            </FrameLayout>
+        </FrameLayout>
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

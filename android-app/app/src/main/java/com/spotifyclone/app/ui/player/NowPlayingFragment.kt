@@ -75,9 +75,11 @@ class NowPlayingFragment : DialogFragment() {
             playbackManager.playPrevious()
         }
 
-        // 3 Dots / Share menu
+        // 3 Dots options menu (Add to playlist, queue, share, download, song credits, favorite)
         binding.btnMoreMenu.setOnClickListener {
-            shareCurrentSong()
+            playbackManager.currentTrack.value?.let { track ->
+                com.spotifyclone.app.ui.dialog.TrackOptionsHelper.showTrackOptions(requireContext(), track)
+            }
         }
 
         // Plus button: Add to playlist
@@ -306,6 +308,23 @@ class NowPlayingFragment : DialogFragment() {
                 if (!isUserTrackingSeekBar) {
                     binding.seekbarPlayback.progress = progress.toInt()
                     binding.textCurrentTime.text = formatTime(progress)
+                }
+            }
+        }
+
+        lifecycleScope.launch {
+            SpotifyApplication.instance.downloadHelper.downloadProgress.collectLatest { progressMap ->
+                val track = playbackManager.currentTrack.value ?: return@collectLatest
+                val progress = progressMap[track.youtubeId]
+                if (progress != null && progress in 0..99) {
+                    binding.btnDownloadTrack.visibility = View.GONE
+                    binding.layoutDownloadProgress.visibility = View.VISIBLE
+                    binding.progressCircleDownload.progress = progress
+                    binding.textDownloadPercent.text = "$progress%"
+                } else {
+                    binding.layoutDownloadProgress.visibility = View.GONE
+                    binding.btnDownloadTrack.visibility = View.VISIBLE
+                    checkIfDownloaded(track.youtubeId)
                 }
             }
         }

@@ -145,8 +145,7 @@ class MainActivity : AppCompatActivity() {
                             }
                             .start()
                     }
-                    com.spotifyclone.app.api.ConnectionState.CONNECTING,
-                    com.spotifyclone.app.api.ConnectionState.SERVER_WAKING -> {
+                    com.spotifyclone.app.api.ConnectionState.CONNECTING -> {
                         binding.layoutConnectionStatus.visibility = View.VISIBLE
                         binding.layoutConnectionStatus.alpha = 1f
                         binding.progressConnectionStatus.visibility = View.VISIBLE
@@ -163,7 +162,7 @@ class MainActivity : AppCompatActivity() {
                         )
                         binding.textConnectionStatus.text = status.message
                     }
-                    com.spotifyclone.app.api.ConnectionState.OFFLINE -> {
+                    com.spotifyclone.app.api.ConnectionState.UNREACHABLE -> {
                         binding.layoutConnectionStatus.visibility = View.VISIBLE
                         binding.layoutConnectionStatus.alpha = 1f
                         binding.progressConnectionStatus.visibility = View.GONE
@@ -177,8 +176,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        binding.btnCloseConnectionStatus.setOnClickListener {
+            connManager.dismiss()
+        }
+
         binding.layoutConnectionStatus.setOnClickListener {
-            connManager.checkConnection()
+            if (connManager.status.value.state == com.spotifyclone.app.api.ConnectionState.UNREACHABLE) {
+                connManager.checkConnection()
+            }
         }
     }
 }

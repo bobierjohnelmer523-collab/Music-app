@@ -48,12 +48,7 @@ class SearchFragment : Fragment() {
                 SpotifyApplication.instance.playbackManager.playQueue(searchResults, position)
             },
             onMenuClick = { track ->
-                SpotifyApplication.instance.downloadHelper.downloadTrack(track) { success ->
-                    activity?.runOnUiThread {
-                        val msg = if (success) "Track downloaded for offline playback" else "Download failed"
-                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                    }
-                }
+                com.spotifyclone.app.ui.dialog.TrackOptionsHelper.showTrackOptions(requireContext(), track)
             }
         )
 
