@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.spotifyclone.app.R
 import com.spotifyclone.app.SpotifyApplication
 import com.spotifyclone.app.api.ApiClient
 import com.spotifyclone.app.data.local.entities.LocalPlaylist
@@ -19,7 +20,9 @@ import com.spotifyclone.app.model.PlaylistDto
 import com.spotifyclone.app.model.PlaylistRequest
 import com.spotifyclone.app.ui.adapter.PlaylistAdapter
 import com.spotifyclone.app.ui.auth.AuthActivity
+import com.spotifyclone.app.ui.downloads.DownloadsFragment
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -46,6 +49,7 @@ class LibraryFragment : Fragment() {
         setupRecyclerView()
         setupListeners()
         updateAccountStatus()
+        observeDownloadsCount()
         loadLocalPlaylistsThenSync()
     }
 
@@ -57,13 +61,47 @@ class LibraryFragment : Fragment() {
 
     private fun updateAccountStatus() {
         if (ApiClient.isLoggedIn()) {
-            binding.textAccountStatus.text = "Logged in as: ${ApiClient.getUsername()} (Render Cloud Synced)"
-            binding.textAccountStatus.setOnClickListener(null)
+            val username = ApiClient.getUsername() ?: "User"
+            binding.textAccountStatus.text = "Logged in as $username (Render Cloud Synced)"
+            binding.btnLoginSignup.text = "Account"
+            binding.btnLoginSignup.setOnClickListener {
+                showAccountDialog(username)
+            }
+            binding.cardAuthBanner.setOnClickListener {
+                showAccountDialog(username)
+            }
         } else {
-            binding.textAccountStatus.text = "Not logged in. Tap here to login & sync with Render backend."
-            binding.textAccountStatus.setOnClickListener {
+            binding.textAccountStatus.text = "Sign in to sync playlists with Render"
+            binding.btnLoginSignup.text = "Log In"
+            val openAuth = View.OnClickListener {
                 startActivity(Intent(requireContext(), AuthActivity::class.java))
             }
+            binding.btnLoginSignup.setOnClickListener(openAuth)
+            binding.cardAuthBanner.setOnClickListener(openAuth)
+        }
+    }
+
+    private fun showAccountDialog(username: String) {
+        AlertDialog.Builder(requireContext())
+            .setTitle("User Account")
+            .setMessage("Logged in as: $username\nCloud Database: Neon PostgreSQL (Render)\nPlaylists automatically backed up.")
+            .setPositiveButton("Log Out") { _, _ ->
+                ApiClient.clearAuth()
+                updateAccountStatus()
+                Toast.makeText(context, "Logged out", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun observeDownloadsCount() {
+        lifecycleScope.launch {
+            SpotifyApplication.instance.database.downloadedTrackDao()
+                .getAllDownloadedTracks()
+                .collectLatest { list ->
+                    val count = list.size
+                    binding.textDownloadedCount.text = "Playlist • $count ${if (count == 1) "song" else "songs"}"
+                }
         }
     }
 
@@ -89,6 +127,14 @@ class LibraryFragment : Fragment() {
     }
 
     private fun setupListeners() {
+        // Downloaded Songs playlist card opens DownloadsFragment
+        binding.cardDownloadedPlaylist.setOnClickListener {
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, DownloadsFragment())
+                .addToBackStack(null)
+                .commit()
+        }
+
         binding.btnCreatePlaylist.setOnClickListener {
             showCreatePlaylistDialog()
         }
@@ -125,14 +171,12 @@ class LibraryFragment : Fragment() {
                     val response = ApiClient.getApi().createPlaylist(PlaylistRequest(title))
                     if (response.isSuccessful && response.body() != null) {
                         val created = response.body()!!
-                        // Save in local Room
                         SpotifyApplication.instance.database.playlistDao().insert(
                             LocalPlaylist(remoteId = created.id, title = created.title, description = created.description)
                         )
                     }
                 } else {
-                    // Local only
-                    val localId = SpotifyApplication.instance.database.playlistDao().insert(
+                    SpotifyApplication.instance.database.playlistDao().insert(
                         LocalPlaylist(title = title, isOfflineOnly = true)
                     )
                 }
@@ -223,7 +267,6 @@ class LibraryFragment : Fragment() {
                 if (response.isSuccessful && response.body() != null) {
                     val remotePlaylists = response.body()!!
 
-                    // Sync remote into Room DB
                     val db = SpotifyApplication.instance.database
                     for (remote in remotePlaylists) {
                         val existing = db.playlistDao().getPlaylistByRemoteId(remote.id)
@@ -235,7 +278,6 @@ class LibraryFragment : Fragment() {
                             existing.id
                         }
 
-                        // Re-cache tracks
                         db.trackDao().deleteTracksForPlaylist(localId)
                         val tracksToInsert = remote.tracks.map { tr ->
                             com.spotifyclone.app.data.local.entities.LocalTrack(

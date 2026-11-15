@@ -8,7 +8,7 @@
     android:background="@color/spotify_black"
     android:padding="24dp">
 
-    <!-- Top bar / Collapse button -->
+    <!-- Top bar: Collapse, Header, 3 dots share menu -->
     <ImageView
         android:id="@+id/btn_collapse"
         android:layout_width="32dp"
@@ -34,14 +34,15 @@
         app:layout_constraintEnd_toEndOf="parent" />
 
     <ImageButton
-        android:id="@+id/btn_add_to_playlist"
+        android:id="@+id/btn_more_menu"
         android:layout_width="32dp"
         android:layout_height="32dp"
         android:background="?selectableItemBackgroundBorderless"
-        android:src="@drawable/ic_library"
+        android:src="@drawable/ic_more_vert"
         app:tint="@color/spotify_white"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"
+        android:contentDescription="Share &amp; More" />
 
     <!-- Album Art / Thumbnail -->
     <androidx.cardview.widget.CardView
@@ -80,8 +81,8 @@
         android:textStyle="bold"
         app:layout_constraintBottom_toTopOf="@id/text_song_artist"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/btn_download_track"
-        tools:text="Starboy" />
+        app:layout_constraintEnd_toStartOf="@id/layout_track_actions"
+        tools:text="Need You" />
 
     <TextView
         android:id="@+id/text_song_artist"
@@ -94,20 +95,39 @@
         android:textSize="16sp"
         app:layout_constraintBottom_toTopOf="@id/seekbar_playback"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/btn_download_track"
-        tools:text="The Weeknd, Daft Punk" />
+        app:layout_constraintEnd_toStartOf="@id/layout_track_actions"
+        tools:text="Bosx1ne" />
 
-    <!-- Download offline button -->
-    <ImageButton
-        android:id="@+id/btn_download_track"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:background="?selectableItemBackgroundBorderless"
-        android:src="@drawable/ic_download"
-        app:tint="@color/spotify_white"
+    <!-- Plus button (Add to playlist) & X button (Blacklist) -->
+    <LinearLayout
+        android:id="@+id/layout_track_actions"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@id/text_song_title"
-        app:layout_constraintBottom_toBottomOf="@id/text_song_artist" />
+        app:layout_constraintBottom_toBottomOf="@id/text_song_artist">
+
+        <ImageButton
+            android:id="@+id/btn_add_to_playlist"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_add"
+            app:tint="@color/spotify_white"
+            android:contentDescription="Add to Playlist" />
+
+        <ImageButton
+            android:id="@+id/btn_blacklist_track"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_close"
+            app:tint="@color/spotify_light_grey"
+            android:contentDescription="Don't play this song (Blacklist)" />
+    </LinearLayout>
 
     <!-- Seekbar & Timestamps -->
     <SeekBar
@@ -123,7 +143,7 @@
         android:id="@+id/text_current_time"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="32dp"
+        android:layout_marginBottom="28dp"
         android:text="0:00"
         android:textColor="@color/spotify_light_grey"
         android:textSize="12sp"
@@ -134,26 +154,38 @@
         android:id="@+id/text_total_time"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="32dp"
+        android:layout_marginBottom="28dp"
         android:text="0:00"
         android:textColor="@color/spotify_light_grey"
         android:textSize="12sp"
         app:layout_constraintEnd_toEndOf="@id/seekbar_playback"
         app:layout_constraintBottom_toTopOf="@id/layout_controls" />
 
-    <!-- Playback Controls -->
+    <!-- Playback Controls: Shuffle on left, Prev, Play/Pause, Next, Download on right -->
     <LinearLayout
         android:id="@+id/layout_controls"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center"
+        android:gravity="center_vertical"
         android:orientation="horizontal"
         app:layout_constraintBottom_toBottomOf="parent">
 
+        <!-- Shuffle / Mode button -->
+        <ImageButton
+            android:id="@+id/btn_shuffle_mode"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:background="?selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_shuffle"
+            app:tint="@color/spotify_white"
+            android:contentDescription="Shuffle &amp; Repeat Settings" />
+
         <ImageButton
             android:id="@+id/btn_prev"
-            android:layout_width="48dp"
+            android:layout_width="0dp"
             android:layout_height="48dp"
+            android:layout_weight="1"
             android:background="?selectableItemBackgroundBorderless"
             android:src="@drawable/ic_skip_previous"
             app:tint="@color/spotify_white" />
@@ -162,8 +194,8 @@
             android:id="@+id/btn_play_pause"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="32dp"
-            android:layout_marginEnd="32dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
             android:backgroundTint="@color/spotify_white"
             android:src="@drawable/ic_play"
             app:tint="@color/spotify_black"
@@ -171,11 +203,23 @@
 
         <ImageButton
             android:id="@+id/btn_next"
-            android:layout_width="48dp"
+            android:layout_width="0dp"
             android:layout_height="48dp"
+            android:layout_weight="1"
             android:background="?selectableItemBackgroundBorderless"
             android:src="@drawable/ic_skip_next"
             app:tint="@color/spotify_white" />
+
+        <!-- Download button next to next button -->
+        <ImageButton
+            android:id="@+id/btn_download_track"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:background="?selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_download"
+            app:tint="@color/spotify_white"
+            android:contentDescription="Download for Offline Playback" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

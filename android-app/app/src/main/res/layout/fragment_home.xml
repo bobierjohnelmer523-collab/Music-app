@@ -13,22 +13,120 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <TextView
-            android:id="@+id/text_greeting"
-            android:layout_width="wrap_content"
+        <!-- Top bar: Profile Avatar + Filter Chips -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Welcome"
-            android:textColor="@color/spotify_white"
-            android:textSize="24sp"
-            android:textStyle="bold" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
+            <androidx.cardview.widget.CardView
+                android:id="@+id/btn_profile_avatar"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                app:cardCornerRadius="17dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@color/spotify_amber">
+
+                <TextView
+                    android:id="@+id/text_avatar_initial"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="J"
+                    android:textColor="@color/spotify_black"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+            </androidx.cardview.widget.CardView>
+
+            <HorizontalScrollView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <!-- "All" Chip -->
+                    <TextView
+                        android:id="@+id/chip_all"
+                        android:layout_width="wrap_content"
+                        android:layout_height="32dp"
+                        android:background="@drawable/chip_selected_bg"
+                        android:gravity="center"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:text="All"
+                        android:textColor="@color/spotify_black"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <!-- "Music" Chip -->
+                    <TextView
+                        android:id="@+id/chip_music"
+                        android:layout_width="wrap_content"
+                        android:layout_height="32dp"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/chip_unselected_bg"
+                        android:gravity="center"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:text="Music"
+                        android:textColor="@color/spotify_white"
+                        android:textSize="13sp" />
+
+                    <!-- "Podcasts" Chip -->
+                    <TextView
+                        android:id="@+id/chip_podcasts"
+                        android:layout_width="wrap_content"
+                        android:layout_height="32dp"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/chip_unselected_bg"
+                        android:gravity="center"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:text="Podcasts"
+                        android:textColor="@color/spotify_white"
+                        android:textSize="13sp" />
+
+                    <!-- "Audiobooks" Chip -->
+                    <TextView
+                        android:id="@+id/chip_audiobooks"
+                        android:layout_width="wrap_content"
+                        android:layout_height="32dp"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/chip_unselected_bg"
+                        android:gravity="center"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:text="Audiobooks"
+                        android:textColor="@color/spotify_white"
+                        android:textSize="13sp" />
+                </LinearLayout>
+            </HorizontalScrollView>
+        </LinearLayout>
+
+        <!-- 2-Column Grid: Recently Played Songs & Opened Playlists -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler_recent_grid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:nestedScrollingEnabled="false" />
+
+        <!-- Quick Picks / Recommendations Section -->
         <TextView
+            android:id="@+id/text_section_header"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="24dp"
             android:text="Quick Picks"
             android:textColor="@color/spotify_white"
-            android:textSize="18sp"
+            android:textSize="22sp"
             android:textStyle="bold" />
 
         <ProgressBar
@@ -36,7 +134,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="20dp"
             android:visibility="gone" />
 
         <androidx.recyclerview.widget.RecyclerView

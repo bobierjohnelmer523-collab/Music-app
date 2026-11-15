@@ -1,25 +1,35 @@
 package com.spotifyclone.app.ui.player
 
 import android.app.AlertDialog
+import android.content.Intent
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.switchmaterial.SwitchMaterial
 import com.spotifyclone.app.R
 import com.spotifyclone.app.SpotifyApplication
 import com.spotifyclone.app.api.ApiClient
 import com.spotifyclone.app.databinding.FragmentNowPlayingBinding
 import com.spotifyclone.app.model.TrackDto
+import com.spotifyclone.app.playback.RepeatMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.URLEncoder
 
 class NowPlayingFragment : DialogFragment() {
 
@@ -65,22 +75,56 @@ class NowPlayingFragment : DialogFragment() {
             playbackManager.playPrevious()
         }
 
+        // 3 Dots / Share menu
+        binding.btnMoreMenu.setOnClickListener {
+            shareCurrentSong()
+        }
+
+        // Plus button: Add to playlist
+        binding.btnAddToPlaylist.setOnClickListener {
+            playbackManager.currentTrack.value?.let { track ->
+                showAddToPlaylistDialog(track)
+            }
+        }
+
+        // X button: Blacklist song and skip
+        binding.btnBlacklistTrack.setOnClickListener {
+            playbackManager.currentTrack.value?.let { track ->
+                AlertDialog.Builder(requireContext())
+                    .setTitle("Hide this song?")
+                    .setMessage("We won't play \"${track.title}\" again automatically. You can still play it directly if you search for it.")
+                    .setPositiveButton("Hide song") { _, _ ->
+                        playbackManager.blacklistCurrentTrack {
+                            Toast.makeText(context, "Song hidden and blacklisted", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        }
+
+        // Shuffle / Playback Options Bottom Sheet
+        binding.btnShuffleMode.setOnClickListener {
+            showPlaybackOptionsBottomSheet()
+        }
+
+        // Download button at bottom right
         binding.btnDownloadTrack.setOnClickListener {
             playbackManager.currentTrack.value?.let { track ->
                 binding.btnDownloadTrack.isEnabled = false
                 SpotifyApplication.instance.downloadHelper.downloadTrack(track) { success ->
                     activity?.runOnUiThread {
                         binding.btnDownloadTrack.isEnabled = true
-                        val message = if (success) "Downloaded for offline playback!" else "Failed to download track"
-                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                        if (success) {
+                            binding.btnDownloadTrack.setColorFilter(
+                                ContextCompat.getColor(requireContext(), R.color.spotify_green)
+                            )
+                            Toast.makeText(context, "Downloaded for offline playback!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Download failed", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
-            }
-        }
-
-        binding.btnAddToPlaylist.setOnClickListener {
-            playbackManager.currentTrack.value?.let { track ->
-                showAddToPlaylistDialog(track)
             }
         }
 
@@ -102,6 +146,70 @@ class NowPlayingFragment : DialogFragment() {
                 isUserTrackingSeekBar = false
             }
         })
+    }
+
+    private fun shareCurrentSong() {
+        val track = playbackManager.currentTrack.value ?: return
+        val artist = track.artist ?: "Unknown Artist"
+        val query = "${track.title} $artist"
+        val encodedQuery = URLEncoder.encode(query, "UTF-8")
+        val spotifySearchUrl = "https://open.spotify.com/search/$encodedQuery"
+
+        val shareText = "Listen to \"${track.title}\" by $artist on Spotify:\n$spotifySearchUrl"
+
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, track.title)
+            putExtra(Intent.EXTRA_TEXT, shareText)
+        }
+
+        startActivity(Intent.createChooser(intent, "Share song to..."))
+    }
+
+    private fun showPlaybackOptionsBottomSheet() {
+        val bottomSheet = BottomSheetDialog(requireContext())
+        val view = layoutInflater.inflate(R.layout.dialog_playback_modes, null)
+        bottomSheet.setContentView(view)
+
+        val switchShuffle = view.findViewById<SwitchMaterial>(R.id.switch_smart_shuffle)
+        val radioGroup = view.findViewById<RadioGroup>(R.id.radio_group_repeat)
+        val radioOff = view.findViewById<RadioButton>(R.id.radio_repeat_off)
+        val radioTwice = view.findViewById<RadioButton>(R.id.radio_repeat_twice)
+        val radioContinuous = view.findViewById<RadioButton>(R.id.radio_repeat_continuous)
+        val radioPlaylist = view.findViewById<RadioButton>(R.id.radio_repeat_playlist)
+
+        // Set current states
+        switchShuffle.isChecked = playbackManager.isShuffleEnabled.value
+        when (playbackManager.repeatMode.value) {
+            RepeatMode.OFF -> radioOff.isChecked = true
+            RepeatMode.PLAY_TWICE -> radioTwice.isChecked = true
+            RepeatMode.CONTINUOUS -> radioContinuous.isChecked = true
+            RepeatMode.PLAYLIST -> radioPlaylist.isChecked = true
+        }
+
+        switchShuffle.setOnCheckedChangeListener { _, isChecked ->
+            playbackManager.setShuffle(isChecked)
+            updateShuffleButtonTint()
+        }
+
+        radioGroup.setOnCheckedChangeListener { _, checkedId ->
+            val mode = when (checkedId) {
+                R.id.radio_repeat_twice -> RepeatMode.PLAY_TWICE
+                R.id.radio_repeat_continuous -> RepeatMode.CONTINUOUS
+                R.id.radio_repeat_playlist -> RepeatMode.PLAYLIST
+                else -> RepeatMode.OFF
+            }
+            playbackManager.setRepeatMode(mode)
+        }
+
+        bottomSheet.show()
+    }
+
+    private fun updateShuffleButtonTint() {
+        val isShuffle = playbackManager.isShuffleEnabled.value
+        val green = ContextCompat.getColor(requireContext(), R.color.spotify_green)
+        val white = ContextCompat.getColor(requireContext(), R.color.spotify_white)
+        binding.btnShuffleMode.setColorFilter(if (isShuffle) green else white)
     }
 
     private fun showAddToPlaylistDialog(track: TrackDto) {
@@ -130,7 +238,6 @@ class NowPlayingFragment : DialogFragment() {
 
     private fun addTrackToSelectedPlaylist(localId: Long, remoteId: Long?, track: TrackDto) {
         lifecycleScope.launch(Dispatchers.IO) {
-            // Save in local Room
             SpotifyApplication.instance.database.trackDao().insert(
                 com.spotifyclone.app.data.local.entities.LocalTrack(
                     playlistId = localId,
@@ -142,12 +249,10 @@ class NowPlayingFragment : DialogFragment() {
                 )
             )
 
-            // If synced with backend, push to backend API
             if (remoteId != null && ApiClient.isLoggedIn()) {
                 try {
                     ApiClient.getApi().addTrackToPlaylist(remoteId, track)
                 } catch (e: Exception) {
-                    // Ignored or logged
                 }
             }
 
@@ -168,6 +273,9 @@ class NowPlayingFragment : DialogFragment() {
                         .load(track.thumbnailUrl)
                         .placeholder(R.drawable.ic_music_note)
                         .into(binding.imageNowPlayingArt)
+
+                    // Check if already downloaded
+                    checkIfDownloaded(track.youtubeId)
                 }
             }
         }
@@ -177,6 +285,12 @@ class NowPlayingFragment : DialogFragment() {
                 binding.btnPlayPause.setImageResource(
                     if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
                 )
+            }
+        }
+
+        lifecycleScope.launch {
+            playbackManager.isShuffleEnabled.collectLatest {
+                updateShuffleButtonTint()
             }
         }
 
@@ -193,6 +307,17 @@ class NowPlayingFragment : DialogFragment() {
                     binding.seekbarPlayback.progress = progress.toInt()
                     binding.textCurrentTime.text = formatTime(progress)
                 }
+            }
+        }
+    }
+
+    private fun checkIfDownloaded(youtubeId: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val isDownloaded = SpotifyApplication.instance.database.downloadedTrackDao().isDownloaded(youtubeId)
+            withContext(Dispatchers.Main) {
+                val green = ContextCompat.getColor(requireContext(), R.color.spotify_green)
+                val white = ContextCompat.getColor(requireContext(), R.color.spotify_white)
+                binding.btnDownloadTrack.setColorFilter(if (isDownloaded) green else white)
             }
         }
     }

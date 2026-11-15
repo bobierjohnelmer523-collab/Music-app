@@ -52,7 +52,6 @@ class MainActivity : AppCompatActivity() {
                 R.id.navigation_home -> HomeFragment()
                 R.id.navigation_search -> SearchFragment()
                 R.id.navigation_library -> LibraryFragment()
-                R.id.navigation_downloads -> DownloadsFragment()
                 else -> HomeFragment()
             }
             loadFragment(fragment)

@@ -17,7 +17,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+
+enum class RepeatMode {
+    OFF,
+    PLAY_TWICE,
+    CONTINUOUS,
+    PLAYLIST
+}
 
 class PlaybackManager(private val context: Context) {
 
@@ -38,6 +46,16 @@ class PlaybackManager(private val context: Context) {
 
     private val _isSourceBroken = MutableStateFlow(false)
     val isSourceBroken: StateFlow<Boolean> = _isSourceBroken
+
+    // Smart Shuffle & Repeat
+    private val _isShuffleEnabled = MutableStateFlow(false)
+    val isShuffleEnabled: StateFlow<Boolean> = _isShuffleEnabled
+
+    private val _repeatMode = MutableStateFlow(RepeatMode.OFF)
+    val repeatMode: StateFlow<RepeatMode> = _repeatMode
+
+    private var repeatCountRemaining: Int = 0
+    private val playedIndices = mutableSetOf<Int>()
 
     private var playlist: MutableList<TrackDto> = mutableListOf()
     private var currentIndex: Int = -1
@@ -77,12 +95,50 @@ class PlaybackManager(private val context: Context) {
                     if (playbackState == Player.STATE_READY) {
                         _durationMs.value = duration
                     } else if (playbackState == Player.STATE_ENDED) {
-                        playNext()
+                        handleTrackCompletion()
                     }
                 }
             })
         }
         progressHandler.post(progressRunnable)
+    }
+
+    fun setShuffle(enabled: Boolean) {
+        _isShuffleEnabled.value = enabled
+        playedIndices.clear()
+        if (currentIndex != -1) {
+            playedIndices.add(currentIndex)
+        }
+    }
+
+    fun setRepeatMode(mode: RepeatMode) {
+        _repeatMode.value = mode
+        repeatCountRemaining = if (mode == RepeatMode.PLAY_TWICE) 1 else 0
+    }
+
+    private fun handleTrackCompletion() {
+        when (_repeatMode.value) {
+            RepeatMode.CONTINUOUS -> {
+                exoPlayer?.seekTo(0)
+                exoPlayer?.play()
+            }
+            RepeatMode.PLAY_TWICE -> {
+                if (repeatCountRemaining > 0) {
+                    repeatCountRemaining--
+                    exoPlayer?.seekTo(0)
+                    exoPlayer?.play()
+                } else {
+                    repeatCountRemaining = 1
+                    playNext()
+                }
+            }
+            RepeatMode.PLAYLIST -> {
+                playNext()
+            }
+            RepeatMode.OFF -> {
+                playNext()
+            }
+        }
     }
 
     /**
@@ -91,12 +147,14 @@ class PlaybackManager(private val context: Context) {
     fun playQueue(tracks: List<TrackDto>, startIndex: Int = 0) {
         if (tracks.isEmpty()) return
         playlist = tracks.toMutableList()
+        playedIndices.clear()
         currentIndex = if (startIndex in tracks.indices) startIndex else 0
         prepareAndPlayCurrent()
     }
 
     fun playSingle(track: TrackDto) {
         playlist = mutableListOf(track)
+        playedIndices.clear()
         currentIndex = 0
         prepareAndPlayCurrent()
     }
@@ -105,6 +163,24 @@ class PlaybackManager(private val context: Context) {
         if (currentIndex !in playlist.indices) return
         val track = playlist[currentIndex]
         _currentTrack.value = track
+        playedIndices.add(currentIndex)
+
+        if (_repeatMode.value == RepeatMode.PLAY_TWICE) {
+            repeatCountRemaining = 1
+        }
+
+        // Record in recently played
+        scope.launch(Dispatchers.IO) {
+            SpotifyApplication.instance.database.recentlyPlayedDao().insert(
+                com.spotifyclone.app.data.local.entities.RecentlyPlayed(
+                    title = track.title,
+                    subtitle = track.artist ?: "Unknown Artist",
+                    thumbnailUrl = track.thumbnailUrl,
+                    type = "track",
+                    dataId = track.youtubeId
+                )
+            )
+        }
 
         scope.launch {
             try {
@@ -160,13 +236,58 @@ class PlaybackManager(private val context: Context) {
 
     fun playNext() {
         if (playlist.isEmpty()) return
-        if (currentIndex + 1 < playlist.size) {
-            currentIndex++
-            prepareAndPlayCurrent()
-        } else {
-            // Loop back or stop
-            currentIndex = 0
-            prepareAndPlayCurrent()
+
+        scope.launch(Dispatchers.IO) {
+            val blacklistedIds = SpotifyApplication.instance.database.blacklistedTrackDao().getAllBlacklistedIds().toSet()
+
+            withContext(Dispatchers.Main) {
+                if (_isShuffleEnabled.value) {
+                    // Smart Shuffle: Pick from unplayed & unblacklisted tracks
+                    val unplayed = playlist.indices.filter { idx ->
+                        !playedIndices.contains(idx) && !blacklistedIds.contains(playlist[idx].youtubeId)
+                    }
+
+                    if (unplayed.isNotEmpty()) {
+                        currentIndex = unplayed.random()
+                    } else {
+                        // All played! Reset and start new cycle
+                        playedIndices.clear()
+                        val valid = playlist.indices.filter { idx ->
+                            !blacklistedIds.contains(playlist[idx].youtubeId)
+                        }
+                        if (valid.isNotEmpty()) {
+                            currentIndex = valid.random()
+                        }
+                    }
+                } else {
+                    // Sequential with blacklist skipping
+                    var nextIndex = currentIndex + 1
+                    var found = false
+                    while (nextIndex < playlist.size) {
+                        if (!blacklistedIds.contains(playlist[nextIndex].youtubeId)) {
+                            currentIndex = nextIndex
+                            found = true
+                            break
+                        }
+                        nextIndex++
+                    }
+
+                    if (!found) {
+                        if (_repeatMode.value == RepeatMode.PLAYLIST) {
+                            // Loop back to start, find first unblacklisted
+                            for (i in playlist.indices) {
+                                if (!blacklistedIds.contains(playlist[i].youtubeId)) {
+                                    currentIndex = i
+                                    found = true
+                                    break
+                                }
+                            }
+                        }
+                    }
+                }
+
+                prepareAndPlayCurrent()
+            }
         }
     }
 
@@ -182,6 +303,23 @@ class PlaybackManager(private val context: Context) {
 
     fun seekTo(positionMs: Long) {
         exoPlayer?.seekTo(positionMs)
+    }
+
+    fun blacklistCurrentTrack(onCompleted: () -> Unit = {}) {
+        val current = _currentTrack.value ?: return
+        scope.launch(Dispatchers.IO) {
+            SpotifyApplication.instance.database.blacklistedTrackDao().insert(
+                com.spotifyclone.app.data.local.entities.BlacklistedTrack(
+                    youtubeId = current.youtubeId,
+                    title = current.title,
+                    artist = current.artist
+                )
+            )
+            withContext(Dispatchers.Main) {
+                onCompleted()
+                playNext()
+            }
+        }
     }
 
     fun resetSourceBrokenState() {
