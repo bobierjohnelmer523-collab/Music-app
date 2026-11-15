@@ -1,63 +1,168 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@color/spotify_black"
-    android:padding="16dp">
+    android:background="@color/spotify_black">
 
-    <RelativeLayout
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header: Back button, Title & + Offline List Button with NO overlap -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical">
+
+            <ImageButton
+                android:id="@+id/btn_back_downloads"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
+                android:background="?selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_skip_previous"
+                app:tint="@color/spotify_white" />
+
+            <TextView
+                android:id="@+id/text_downloads_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_toEndOf="@id/btn_back_downloads"
+                android:layout_toStartOf="@+id/btn_create_offline_playlist"
+                android:layout_centerVertical="true"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="12dp"
+                android:text="Downloaded"
+                android:textColor="@color/spotify_white"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/btn_create_offline_playlist"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:background="@drawable/bg_pill_button"
+                android:gravity="center"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="+ Folder"
+                android:textColor="@color/spotify_black"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </RelativeLayout>
 
         <TextView
+            android:id="@+id/text_downloads_subtitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Downloaded Music"
-            android:textColor="@color/spotify_white"
-            android:textSize="26sp"
-            android:textStyle="bold" />
+            android:layout_marginTop="4dp"
+            android:text="Play offline files • Long press songs to organize"
+            android:textColor="@color/spotify_light_grey"
+            android:textSize="12sp" />
 
-        <Button
-            android:id="@+id/btn_create_offline_playlist"
+        <!-- Horizontal Folder Chips Bar -->
+        <HorizontalScrollView
+            android:id="@+id/scroll_offline_folders"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/layout_folder_chips"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical" />
+        </HorizontalScrollView>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler_downloads"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginTop="10dp" />
+
+        <TextView
+            android:id="@+id/text_empty_downloads"
             android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:layout_alignParentEnd="true"
-            android:backgroundTint="@color/spotify_green"
-            android:text="+ Offline List"
-            android:textColor="@color/spotify_black"
-            android:textSize="12sp"
-            android:textStyle="bold" />
-    </RelativeLayout>
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="48dp"
+            android:text="No downloaded tracks in this folder.\nDownload tracks from Now Playing or Search to listen offline."
+            android:textAlignment="center"
+            android:textColor="@color/spotify_light_grey"
+            android:visibility="gone" />
+    </LinearLayout>
 
-    <TextView
-        android:id="@+id/text_downloads_subtitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:text="Play offline files cached via Media3 DownloadManager"
-        android:textColor="@color/spotify_light_grey"
-        android:textSize="12sp" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recycler_downloads"
+    <!-- Multi-select Bottom Floating Bar -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/card_select_bar"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="16dp" />
-
-    <TextView
-        android:id="@+id/text_empty_downloads"
-        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:layout_marginTop="48dp"
-        android:text="No downloaded tracks yet.\nDownload tracks from Now Playing or Search to listen offline."
-        android:textAlignment="center"
-        android:textColor="@color/spotify_light_grey"
-        android:visibility="gone" />
+        android:layout_alignParentBottom="true"
+        android:layout_margin="16dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="#222222"
+        android:visibility="gone"
+        tools:visibility="visible">
 
-</LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
+
+            <TextView
+                android:id="@+id/text_select_count"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="1 selected"
+                android:textColor="@color/spotify_white"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_cancel_select"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:background="@drawable/bg_pill_button_cancel"
+                android:gravity="center"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:text="Cancel"
+                android:textColor="@color/spotify_white"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_move_to_folder"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_pill_button"
+                android:gravity="center"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:text="Move to Folder"
+                android:textColor="@color/spotify_black"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+</RelativeLayout>

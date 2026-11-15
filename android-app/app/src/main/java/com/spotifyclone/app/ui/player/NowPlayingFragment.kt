@@ -92,16 +92,17 @@ class NowPlayingFragment : DialogFragment() {
         // X button: Blacklist song and skip
         binding.btnBlacklistTrack.setOnClickListener {
             playbackManager.currentTrack.value?.let { track ->
-                AlertDialog.Builder(requireContext())
-                    .setTitle("Hide this song?")
-                    .setMessage("We won't play \"${track.title}\" again automatically. You can still play it directly if you search for it.")
-                    .setPositiveButton("Hide song") { _, _ ->
-                        playbackManager.blacklistCurrentTrack {
-                            Toast.makeText(context, "Song hidden and blacklisted", Toast.LENGTH_SHORT).show()
-                        }
+                com.spotifyclone.app.ui.dialog.CustomDialogHelper.showConfirmDialog(
+                    context = requireContext(),
+                    title = "Hide this song?",
+                    message = "We won't play \"${track.title}\" again automatically. You can still play it directly if you search for it.",
+                    confirmText = "Hide Song",
+                    isDestructive = true
+                ) {
+                    playbackManager.blacklistCurrentTrack {
+                        Toast.makeText(context, "Song hidden and blacklisted", Toast.LENGTH_SHORT).show()
                     }
-                    .setNegativeButton("Cancel", null)
-                    .show()
+                }
             }
         }
 

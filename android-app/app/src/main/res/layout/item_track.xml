@@ -11,6 +11,15 @@
     android:paddingEnd="8dp"
     android:background="?selectableItemBackground">
 
+    <!-- Multi-select Circle Checkbox -->
+    <ImageView
+        android:id="@+id/img_select_circle"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_marginEnd="10dp"
+        android:src="@drawable/ic_circle_unchecked"
+        android:visibility="gone" />
+
     <androidx.cardview.widget.CardView
         android:layout_width="48dp"
         android:layout_height="48dp"

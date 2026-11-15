@@ -218,10 +218,6 @@ object TrackOptionsHelper {
                 "• Source: YouTube Music Official Catalog\n" +
                 "• Offline Capability: Supported"
 
-        AlertDialog.Builder(context)
-            .setTitle("Song Credits")
-            .setMessage(message)
-            .setPositiveButton("Close", null)
-            .show()
+        CustomDialogHelper.showInfoDialog(context, "Song Credits", message)
     }
 }

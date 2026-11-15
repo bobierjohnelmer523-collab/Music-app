@@ -33,13 +33,14 @@ object NewPipeExtractorHelper {
     private const val DEFAULT_USER_AGENT =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+    private val okHttpClient = OkHttpClient.Builder()
+        .connectionPool(ConnectionPool(10, 5, TimeUnit.MINUTES))
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .build()
+
     fun init() {
         if (initialized) return
-        val okHttpClient = OkHttpClient.Builder()
-            .connectionPool(ConnectionPool(10, 5, TimeUnit.MINUTES))
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .build()
 
         val downloader = object : Downloader() {
             @Throws(IOException::class, ExtractionException::class)
@@ -177,6 +178,39 @@ object NewPipeExtractorHelper {
             Result.failure(SourceBrokenException("Fatal extraction failure during stream URL extraction", e))
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    /**
+     * Fetch search auto-complete predictions / suggestions as the user types.
+     */
+    suspend fun fetchSearchSuggestions(query: String): List<String> = withContext(Dispatchers.IO) {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return@withContext emptyList()
+        try {
+            val encoded = java.net.URLEncoder.encode(trimmed, "UTF-8")
+            val url = "https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=$encoded"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("User-Agent", DEFAULT_USER_AGENT)
+                .build()
+
+            val response = okHttpClient.newCall(request).execute()
+            val body = response.body?.string() ?: return@withContext emptyList()
+
+            val tokener = org.json.JSONTokener(body)
+            val jsonArray = tokener.nextValue() as? org.json.JSONArray ?: return@withContext emptyList()
+            if (jsonArray.length() >= 2) {
+                val suggestionsArray = jsonArray.getJSONArray(1)
+                val list = mutableListOf<String>()
+                for (i in 0 until suggestionsArray.length()) {
+                    list.add(suggestionsArray.getString(i))
+                }
+                return@withContext list
+            }
+            emptyList()
+        } catch (e: Exception) {
+            emptyList()
         }
     }
 }

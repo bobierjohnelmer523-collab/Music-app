@@ -128,6 +128,16 @@ class LibraryFragment : Fragment() {
             },
             onDeleteClick = { playlist ->
                 showDeleteDialog(playlist)
+            },
+            onDownloadClick = { playlist ->
+                if (playlist.tracks.isEmpty()) {
+                    Toast.makeText(context, "Playlist has no tracks to download", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Downloading \"${playlist.title}\" (${playlist.tracks.size} songs) for offline playback...", Toast.LENGTH_LONG).show()
+                    for (track in playlist.tracks) {
+                        SpotifyApplication.instance.downloadHelper.downloadTrack(track)
+                    }
+                }
             }
         )
 
@@ -164,21 +174,15 @@ class LibraryFragment : Fragment() {
     }
 
     private fun showCreatePlaylistDialog() {
-        val input = EditText(requireContext()).apply {
-            hint = "Playlist Name"
+        com.spotifyclone.app.ui.dialog.CustomDialogHelper.showInputDialog(
+            context = requireContext(),
+            title = "New Playlist",
+            message = "Give your playlist a name.",
+            hint = "My Playlist",
+            confirmText = "Create"
+        ) { title ->
+            createPlaylist(title)
         }
-
-        AlertDialog.Builder(requireContext())
-            .setTitle("New Playlist")
-            .setView(input)
-            .setPositiveButton("Create") { _, _ ->
-                val title = input.text.toString().trim()
-                if (title.isNotEmpty()) {
-                    createPlaylist(title)
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
     }
 
     private fun createPlaylist(title: String) {
@@ -212,14 +216,15 @@ class LibraryFragment : Fragment() {
     }
 
     private fun showDeleteDialog(playlist: PlaylistDto) {
-        AlertDialog.Builder(requireContext())
-            .setTitle("Delete Playlist")
-            .setMessage("Delete \"${playlist.title}\"?")
-            .setPositiveButton("Delete") { _, _ ->
-                deletePlaylist(playlist)
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+        com.spotifyclone.app.ui.dialog.CustomDialogHelper.showConfirmDialog(
+            context = requireContext(),
+            title = "Delete Playlist",
+            message = "Are you sure you want to delete \"${playlist.title}\"?",
+            confirmText = "Delete",
+            isDestructive = true
+        ) {
+            deletePlaylist(playlist)
+        }
     }
 
     private fun deletePlaylist(playlist: PlaylistDto) {

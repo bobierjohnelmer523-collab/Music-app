@@ -1,6 +1,7 @@
 package com.spotifyclone.app.ui.adapter
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -22,8 +23,21 @@ data class DownloadItem(
 class DownloadedTrackAdapter(
     private var tracks: List<DownloadItem>,
     private val onTrackClick: (DownloadItem, Int) -> Unit,
-    private val onDeleteClick: (DownloadItem) -> Unit
+    private val onDeleteClick: (DownloadItem) -> Unit,
+    private val onSelectionChanged: (Int) -> Unit = {}
 ) : RecyclerView.Adapter<DownloadedTrackAdapter.DownloadedViewHolder>() {
+
+    var isSelectionMode: Boolean = false
+        private set
+    val selectedIds = mutableSetOf<String>()
+
+    fun setSelectionMode(enabled: Boolean) {
+        isSelectionMode = enabled
+        if (!enabled) {
+            selectedIds.clear()
+        }
+        notifyDataSetChanged()
+    }
 
     fun updateTracks(newTracks: List<DownloadItem>) {
         this.tracks = newTracks
@@ -59,6 +73,7 @@ class DownloadedTrackAdapter(
                 binding.btnTrackMenu.setColorFilter(
                     ContextCompat.getColor(context, R.color.spotify_light_grey)
                 )
+                binding.imgSelectCircle.visibility = View.GONE
             } else {
                 val artistText = item.artist ?: "Unknown Artist"
                 binding.textTrackArtist.text = "$artistText • Downloaded"
@@ -69,6 +84,16 @@ class DownloadedTrackAdapter(
                 binding.btnTrackMenu.setColorFilter(
                     ContextCompat.getColor(context, R.color.spotify_green)
                 )
+
+                if (isSelectionMode) {
+                    binding.imgSelectCircle.visibility = View.VISIBLE
+                    val isSelected = selectedIds.contains(item.youtubeId)
+                    binding.imgSelectCircle.setImageResource(
+                        if (isSelected) R.drawable.ic_circle_checked else R.drawable.ic_circle_unchecked
+                    )
+                } else {
+                    binding.imgSelectCircle.visibility = View.GONE
+                }
             }
 
             Glide.with(context)
@@ -77,10 +102,32 @@ class DownloadedTrackAdapter(
                 .into(binding.imageTrackThumbnail)
 
             binding.root.setOnClickListener {
-                if (item.isDownloading) {
+                if (isSelectionMode && !item.isDownloading) {
+                    if (selectedIds.contains(item.youtubeId)) {
+                        selectedIds.remove(item.youtubeId)
+                    } else {
+                        selectedIds.add(item.youtubeId)
+                    }
+                    notifyItemChanged(position)
+                    onSelectionChanged(selectedIds.size)
+                } else if (item.isDownloading) {
                     Toast.makeText(context, "Download in progress (${item.progressPercent}%)", Toast.LENGTH_SHORT).show()
                 } else {
                     onTrackClick(item, position)
+                }
+            }
+
+            binding.root.setOnLongClickListener {
+                if (!item.isDownloading) {
+                    if (!isSelectionMode) {
+                        isSelectionMode = true
+                        selectedIds.add(item.youtubeId)
+                        notifyDataSetChanged()
+                        onSelectionChanged(selectedIds.size)
+                    }
+                    true
+                } else {
+                    false
                 }
             }
 

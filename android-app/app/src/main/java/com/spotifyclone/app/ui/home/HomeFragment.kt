@@ -80,16 +80,17 @@ class HomeFragment : Fragment() {
     }
 
     private fun showUserProfileDialog(username: String) {
-        AlertDialog.Builder(requireContext())
-            .setTitle("Account")
-            .setMessage("Logged in as: $username\nCloud Database: Neon PostgreSQL (Render)\nStatus: Connected")
-            .setPositiveButton("Log Out") { _, _ ->
-                ApiClient.clearAuth()
-                setupProfileAvatar()
-                Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("Close", null)
-            .show()
+        com.spotifyclone.app.ui.dialog.CustomDialogHelper.showConfirmDialog(
+            context = requireContext(),
+            title = "Account Settings",
+            message = "Logged in as: $username\nCloud Database: Neon PostgreSQL (Render)\nStatus: Connected & Synchronized",
+            confirmText = "Log Out",
+            isDestructive = true
+        ) {
+            ApiClient.clearAuth()
+            setupProfileAvatar()
+            Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun setupRecentGrid() {

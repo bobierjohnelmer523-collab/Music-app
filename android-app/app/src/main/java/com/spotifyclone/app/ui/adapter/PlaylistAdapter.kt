@@ -9,7 +9,8 @@ import com.spotifyclone.app.model.PlaylistDto
 class PlaylistAdapter(
     private var playlists: List<PlaylistDto>,
     private val onPlaylistClick: (PlaylistDto) -> Unit,
-    private val onDeleteClick: (PlaylistDto) -> Unit
+    private val onDeleteClick: (PlaylistDto) -> Unit,
+    private val onDownloadClick: (PlaylistDto) -> Unit = {}
 ) : RecyclerView.Adapter<PlaylistAdapter.PlaylistViewHolder>() {
 
     fun updatePlaylists(newPlaylists: List<PlaylistDto>) {
@@ -40,6 +41,10 @@ class PlaylistAdapter(
 
             binding.root.setOnClickListener {
                 onPlaylistClick(playlist)
+            }
+
+            binding.btnPlaylistDownload.setOnClickListener {
+                onDownloadClick(playlist)
             }
 
             binding.btnPlaylistDelete.setOnClickListener {

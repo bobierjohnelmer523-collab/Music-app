@@ -7,7 +7,9 @@ import androidx.room.RoomDatabase
 import com.spotifyclone.app.data.local.dao.BlacklistedTrackDao
 import com.spotifyclone.app.data.local.dao.DownloadedTrackDao
 import com.spotifyclone.app.data.local.dao.LikedSongDao
+import com.spotifyclone.app.data.local.dao.OfflineFolderDao
 import com.spotifyclone.app.data.local.dao.PlaylistDao
+import com.spotifyclone.app.data.local.dao.RecentSearchDao
 import com.spotifyclone.app.data.local.dao.RecentlyPlayedDao
 import com.spotifyclone.app.data.local.dao.TrackDao
 import com.spotifyclone.app.data.local.entities.BlacklistedTrack
@@ -15,6 +17,9 @@ import com.spotifyclone.app.data.local.entities.DownloadedTrack
 import com.spotifyclone.app.data.local.entities.LikedSong
 import com.spotifyclone.app.data.local.entities.LocalPlaylist
 import com.spotifyclone.app.data.local.entities.LocalTrack
+import com.spotifyclone.app.data.local.entities.OfflineFolder
+import com.spotifyclone.app.data.local.entities.OfflineSongFolder
+import com.spotifyclone.app.data.local.entities.RecentSearch
 import com.spotifyclone.app.data.local.entities.RecentlyPlayed
 
 @Database(
@@ -24,9 +29,12 @@ import com.spotifyclone.app.data.local.entities.RecentlyPlayed
         DownloadedTrack::class,
         BlacklistedTrack::class,
         RecentlyPlayed::class,
-        LikedSong::class
+        LikedSong::class,
+        OfflineFolder::class,
+        OfflineSongFolder::class,
+        RecentSearch::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -37,6 +45,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun blacklistedTrackDao(): BlacklistedTrackDao
     abstract fun recentlyPlayedDao(): RecentlyPlayedDao
     abstract fun likedSongDao(): LikedSongDao
+    abstract fun offlineFolderDao(): OfflineFolderDao
+    abstract fun recentSearchDao(): RecentSearchDao
 
     companion object {
         @Volatile

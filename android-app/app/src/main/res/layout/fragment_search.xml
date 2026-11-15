@@ -17,6 +17,7 @@
         android:textSize="28sp"
         android:textStyle="bold" />
 
+    <!-- Search Input Bar -->
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="48dp"
@@ -32,50 +33,126 @@
             android:paddingEnd="12dp">
 
             <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
                 android:src="@drawable/ic_search"
                 app:tint="@color/spotify_black" />
 
             <EditText
                 android:id="@+id/edit_search_query"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="match_parent"
+                android:layout_weight="1"
                 android:layout_marginStart="8dp"
                 android:background="@null"
-                android:hint="@string/search_hint"
+                android:hint="What do you want to listen to?"
                 android:imeOptions="actionSearch"
                 android:inputType="text"
                 android:maxLines="1"
                 android:textColor="@color/spotify_black"
                 android:textColorHint="@color/spotify_card_grey"
                 android:textSize="14sp" />
+
+            <ImageView
+                android:id="@+id/btn_clear_search_text"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:padding="4dp"
+                android:src="@drawable/ic_close"
+                android:visibility="gone"
+                app:tint="@color/spotify_card_grey" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
-    <ProgressBar
-        android:id="@+id/search_progress"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:layout_marginTop="24dp"
-        android:visibility="gone" />
-
-    <TextView
-        android:id="@+id/text_search_empty"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:layout_marginTop="48dp"
-        android:textColor="@color/spotify_light_grey"
-        android:textSize="14sp"
-        android:text="Search songs, artists, or podcasts" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recycler_search_results"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="16dp" />
+        android:layout_marginTop="12dp">
+
+        <!-- 1. Recent Searches Container (Shown when query is empty) -->
+        <LinearLayout
+            android:id="@+id/layout_recent_searches_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Recent searches"
+                    android:textColor="@color/spotify_white"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/btn_clear_all_recent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:text="Clear all"
+                    android:textColor="@color/spotify_light_grey"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:padding="4dp" />
+            </RelativeLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recycler_recent_searches"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginTop="6dp" />
+        </LinearLayout>
+
+        <!-- 2. Search Prediction / Autocomplete Suggestions (Shown while typing) -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/card_search_suggestions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="6dp"
+            app:cardBackgroundColor="#1E1E1E"
+            android:visibility="gone">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recycler_suggestions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp" />
+        </androidx.cardview.widget.CardView>
+
+        <!-- 3. Search Results (Shown after searching) -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler_search_results"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
+        <ProgressBar
+            android:id="@+id/search_progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:indeterminateTint="@color/spotify_green"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/text_search_empty"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:textColor="@color/spotify_light_grey"
+            android:textSize="14sp"
+            android:text="Play what you love • Search for artists, songs, or podcasts" />
+
+    </FrameLayout>
 
 </LinearLayout>
