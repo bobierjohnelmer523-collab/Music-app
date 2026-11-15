@@ -29,7 +29,7 @@ class AppUpdateManager(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.Main)
 
     // User can customize the GitHub owner if desired
-    var repoOwner: String = "BOBIERJOHNELMER"
+    var repoOwner: String = "bobierjohnelmer523-collab"
     var repoName: String = "Music-app"
 
     /**
