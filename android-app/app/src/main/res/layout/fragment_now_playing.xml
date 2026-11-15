@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/spotify_black"
+    android:padding="24dp">
+
+    <!-- Top bar / Collapse button -->
+    <ImageView
+        android:id="@+id/btn_collapse"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:src="@drawable/ic_skip_previous"
+        android:rotation="-90"
+        app:tint="@color/spotify_white"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <TextView
+        android:id="@+id/text_now_playing_header"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="PLAYING FROM YOUTUBE MUSIC"
+        android:textColor="@color/spotify_light_grey"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.08"
+        app:layout_constraintTop_toTopOf="@id/btn_collapse"
+        app:layout_constraintBottom_toBottomOf="@id/btn_collapse"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <ImageButton
+        android:id="@+id/btn_add_to_playlist"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="?selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_library"
+        app:tint="@color/spotify_white"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Album Art / Thumbnail -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/card_thumbnail"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="28dp"
+        android:layout_marginBottom="32dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="@color/spotify_card_grey"
+        app:layout_constraintDimensionRatio="1:1"
+        app:layout_constraintTop_toBottomOf="@id/btn_collapse"
+        app:layout_constraintBottom_toTopOf="@id/text_song_title"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageView
+            android:id="@+id/image_now_playing_art"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_music_note" />
+    </androidx.cardview.widget.CardView>
+
+    <!-- Track Title & Artist -->
+    <TextView
+        android:id="@+id/text_song_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:ellipsize="marquee"
+        android:singleLine="true"
+        android:marqueeRepeatLimit="marquee_forever"
+        android:textColor="@color/spotify_white"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@id/text_song_artist"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/btn_download_track"
+        tools:text="Starboy" />
+
+    <TextView
+        android:id="@+id/text_song_artist"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/spotify_light_grey"
+        android:textSize="16sp"
+        app:layout_constraintBottom_toTopOf="@id/seekbar_playback"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/btn_download_track"
+        tools:text="The Weeknd, Daft Punk" />
+
+    <!-- Download offline button -->
+    <ImageButton
+        android:id="@+id/btn_download_track"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="?selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_download"
+        app:tint="@color/spotify_white"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/text_song_title"
+        app:layout_constraintBottom_toBottomOf="@id/text_song_artist" />
+
+    <!-- Seekbar & Timestamps -->
+    <SeekBar
+        android:id="@+id/seekbar_playback"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="4dp"
+        android:progressTint="@color/spotify_white"
+        android:thumbTint="@color/spotify_white"
+        app:layout_constraintBottom_toTopOf="@id/text_current_time" />
+
+    <TextView
+        android:id="@+id/text_current_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="32dp"
+        android:text="0:00"
+        android:textColor="@color/spotify_light_grey"
+        android:textSize="12sp"
+        app:layout_constraintStart_toStartOf="@id/seekbar_playback"
+        app:layout_constraintBottom_toTopOf="@id/layout_controls" />
+
+    <TextView
+        android:id="@+id/text_total_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="32dp"
+        android:text="0:00"
+        android:textColor="@color/spotify_light_grey"
+        android:textSize="12sp"
+        app:layout_constraintEnd_toEndOf="@id/seekbar_playback"
+        app:layout_constraintBottom_toTopOf="@id/layout_controls" />
+
+    <!-- Playback Controls -->
+    <LinearLayout
+        android:id="@+id/layout_controls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <ImageButton
+            android:id="@+id/btn_prev"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_skip_previous"
+            app:tint="@color/spotify_white" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btn_play_pause"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="32dp"
+            android:layout_marginEnd="32dp"
+            android:backgroundTint="@color/spotify_white"
+            android:src="@drawable/ic_play"
+            app:tint="@color/spotify_black"
+            app:fabCustomSize="64dp" />
+
+        <ImageButton
+            android:id="@+id/btn_next"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_skip_next"
+            app:tint="@color/spotify_white" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

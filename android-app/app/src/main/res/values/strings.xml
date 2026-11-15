@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">Spotify</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_library">Your Library</string>
+    <string name="nav_downloads">Downloads</string>
+
+    <string name="search_hint">What do you want to listen to?</string>
+    <string name="source_broken_warning">Audio stream failed (YouTube Music parser broken). Tap here to check for an app update.</string>
+    <string name="update_available">Update Available</string>
+    <string name="update_message">A new update is available that fixes music playback. Would you like to install it now?</string>
+    <string name="install">Install</string>
+    <string name="later">Later</string>
+    <string name="downloading_update">Downloading update…</string>
+    <string name="sync_playlists">Sync Playlists</string>
+    <string name="create_playlist">Create Playlist</string>
+    <string name="playlist_name">Playlist Name</string>
+    <string name="login">Log In</string>
+    <string name="register">Sign Up</string>
+</resources>

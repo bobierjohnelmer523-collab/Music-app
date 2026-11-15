@@ -1,0 +1,16 @@
+# System & IDE files
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Gradle & Build files
+.gradle/
+build/
+*/build/
+target/
+*/target/
+*.apk
+*.aab
+keystore.jks
+*.log
