@@ -19,6 +19,18 @@ interface RecentlyPlayedDao {
     """)
     fun getRecentItems(): Flow<List<RecentlyPlayed>>
 
+    @Query("""
+        SELECT r.* FROM recently_played r
+        INNER JOIN (
+            SELECT title, MAX(timestamp) as max_time 
+            FROM recently_played 
+            GROUP BY title
+        ) latest ON r.title = latest.title AND r.timestamp = latest.max_time
+        ORDER BY r.timestamp DESC 
+        LIMIT 40
+    """)
+    fun getAllRecentPlayed(): Flow<List<RecentlyPlayed>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(item: RecentlyPlayed)
 
@@ -33,4 +45,10 @@ interface RecentlyPlayedDao {
 
     @Query("DELETE FROM recently_played WHERE dataId = :dataId")
     suspend fun deleteByDataId(dataId: String)
+
+    @Query("DELETE FROM recently_played WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM recently_played")
+    suspend fun clearAll()
 }

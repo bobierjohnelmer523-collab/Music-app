@@ -134,7 +134,7 @@ object TrackOptionsHelper {
         bottomSheet.show()
     }
 
-    private fun showAddToPlaylistDialog(context: Context, track: TrackDto) {
+    fun showAddToPlaylistDialog(context: Context, track: TrackDto) {
         val scope = CoroutineScope(Dispatchers.Main)
         scope.launch(Dispatchers.IO) {
             val localPlaylists = SpotifyApplication.instance.database.playlistDao().getAllPlaylists().first()

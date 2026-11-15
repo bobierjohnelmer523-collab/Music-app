@@ -4,39 +4,90 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="48dp"
+    android:layout_height="64dp"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:paddingStart="8dp"
-    android:paddingEnd="8dp"
+    android:paddingStart="4dp"
+    android:paddingEnd="4dp"
     android:background="?selectableItemBackground">
 
-    <ImageView
-        android:layout_width="20dp"
-        android:layout_height="20dp"
-        android:src="@drawable/ic_search"
-        app:tint="@color/spotify_light_grey" />
+    <!-- Square Thumbnail Card -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="4dp"
+        app:cardCornerRadius="4dp"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="@color/spotify_card_grey">
 
-    <TextView
-        android:id="@+id/text_recent_search_query"
+        <ImageView
+            android:id="@+id/img_recent_thumbnail"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_music_note" />
+
+        <ImageView
+            android:id="@+id/img_search_icon"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_search"
+            android:visibility="gone"
+            app:tint="@color/spotify_light_grey" />
+    </androidx.cardview.widget.CardView>
+
+    <!-- Texts -->
+    <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:layout_marginStart="14dp"
-        android:textColor="@color/spotify_white"
-        android:textSize="15sp"
-        android:textStyle="bold"
-        android:maxLines="1"
-        android:ellipsize="end"
-        tools:text="Recent Artist" />
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="8dp"
+        android:orientation="vertical">
 
+        <TextView
+            android:id="@+id/text_recent_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/spotify_white"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"
+            tools:text="Cold Water (feat. Justin Bieber)" />
+
+        <TextView
+            android:id="@+id/text_recent_subtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="@color/spotify_light_grey"
+            android:textSize="13sp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            tools:text="Song • Major Lazer, Justin Bieber" />
+    </LinearLayout>
+
+    <!-- Add to playlist button (visible for songs / playlists) -->
+    <ImageButton
+        android:id="@+id/btn_recent_add_to_playlist"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:background="?selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_add_circle_outline"
+        app:tint="@color/spotify_light_grey"
+        android:contentDescription="Add to playlist" />
+
+    <!-- Remove item button (✕) -->
     <ImageButton
         android:id="@+id/btn_remove_recent_search"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_marginStart="2dp"
         android:background="?selectableItemBackgroundBorderless"
         android:src="@drawable/ic_close"
         app:tint="@color/spotify_light_grey"
-        android:contentDescription="Remove search" />
+        android:contentDescription="Remove from recent searches" />
 
 </LinearLayout>
