@@ -28,6 +28,12 @@ interface PlaylistDao {
     @Query("DELETE FROM local_playlists WHERE id = :id OR remoteId = :id OR title = :title")
     suspend fun deleteByIdOrRemoteIdOrTitle(id: Long, title: String)
 
+    @Query("UPDATE local_playlists SET coverUrl = :coverUrl WHERE id = :id OR remoteId = :id")
+    suspend fun updateCoverUrl(id: Long, coverUrl: String?)
+
+    @Query("UPDATE local_playlists SET title = :title, description = :description, coverUrl = :coverUrl WHERE id = :id OR remoteId = :id")
+    suspend fun updatePlaylistDetails(id: Long, title: String, description: String?, coverUrl: String?)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(playlist: LocalPlaylist): Long
 

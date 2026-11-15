@@ -7,20 +7,23 @@
     android:layout_height="72dp"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:paddingStart="8dp"
-    android:paddingEnd="8dp"
+    android:paddingStart="4dp"
+    android:paddingEnd="4dp"
     android:background="?selectableItemBackground">
 
     <androidx.cardview.widget.CardView
         android:layout_width="56dp"
         android:layout_height="56dp"
+        android:layout_marginStart="4dp"
         app:cardCornerRadius="4dp"
+        app:cardElevation="0dp"
         app:cardBackgroundColor="@color/spotify_card_grey">
 
         <ImageView
+            android:id="@+id/img_playlist_cover"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:scaleType="center"
+            android:scaleType="centerCrop"
             android:src="@drawable/ic_library"
             app:tint="@color/spotify_green" />
     </androidx.cardview.widget.CardView>
@@ -42,36 +45,27 @@
             android:textColor="@color/spotify_white"
             android:textSize="16sp"
             android:textStyle="bold"
-            tools:text="My Favorite Hits" />
+            tools:text="Dap" />
 
         <TextView
             android:id="@+id/text_playlist_details"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="@color/spotify_light_grey"
             android:textSize="13sp"
-            tools:text="Playlist • 12 songs" />
+            tools:text="Playlist • Jel." />
     </LinearLayout>
 
     <ImageButton
-        android:id="@+id/btn_playlist_download"
+        android:id="@+id/btn_playlist_options_menu"
         android:layout_width="36dp"
         android:layout_height="36dp"
         android:background="?selectableItemBackgroundBorderless"
-        android:src="@drawable/ic_download"
+        android:src="@drawable/ic_more_vert"
         app:tint="@color/spotify_light_grey"
-        android:contentDescription="Download Playlist" />
-
-    <ImageButton
-        android:id="@+id/btn_playlist_delete"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:layout_marginStart="4dp"
-        android:background="?selectableItemBackgroundBorderless"
-        android:src="@drawable/ic_close"
-        app:tint="@color/spotify_light_grey"
-        android:contentDescription="Delete" />
+        android:contentDescription="Options" />
 
 </LinearLayout>

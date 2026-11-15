@@ -7,225 +7,334 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/spotify_black"
-    android:padding="16dp">
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="16dp">
 
-    <!-- Header -->
+    <!-- Top Bar: Avatar + "Your Library" + Search + Plus -->
     <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="48dp">
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/btn_profile_avatar"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_centerVertical="true"
+            app:cardCornerRadius="17dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@color/spotify_amber">
+
+            <TextView
+                android:id="@+id/text_avatar_initial"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="J"
+                android:textColor="@color/spotify_black"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </androidx.cardview.widget.CardView>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_toEndOf="@id/btn_profile_avatar"
+            android:layout_centerVertical="true"
+            android:layout_marginStart="12dp"
             android:text="Your Library"
             android:textColor="@color/spotify_white"
-            android:textSize="26sp"
+            android:textSize="24sp"
             android:textStyle="bold" />
 
         <LinearLayout
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_alignParentEnd="true"
+            android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <ImageButton
-                android:id="@+id/btn_sync_playlists"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:id="@+id/btn_library_search"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
                 android:background="?selectableItemBackgroundBorderless"
-                android:src="@drawable/ic_skip_next"
-                app:tint="@color/spotify_green"
-                android:contentDescription="Sync with Backend" />
+                android:src="@drawable/ic_search"
+                app:tint="@color/spotify_white"
+                android:contentDescription="Search Library" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/btn_create_playlist"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
                 android:layout_marginStart="8dp"
-                android:backgroundTint="@color/spotify_green"
-                android:text="+ New"
-                android:textColor="@color/spotify_black"
-                android:textSize="12sp"
-                android:textStyle="bold" />
+                android:background="?selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_add"
+                app:tint="@color/spotify_white"
+                android:contentDescription="New Playlist" />
         </LinearLayout>
     </RelativeLayout>
 
-    <!-- User account status banner (Clickable to Login/Sign Up) -->
-    <androidx.cardview.widget.CardView
-        android:id="@+id/card_auth_banner"
+    <!-- Filter Chips Row (Playlists, Podcasts, Artists, Downloaded) -->
+    <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        app:cardCornerRadius="6dp"
-        app:cardElevation="0dp"
-        app:cardBackgroundColor="@color/spotify_card_grey">
+        android:layout_marginTop="12dp"
+        android:scrollbars="none">
 
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:padding="10dp">
+            android:orientation="horizontal">
 
             <TextView
-                android:id="@+id/text_account_status"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textColor="@color/spotify_white"
-                android:textSize="13sp"
-                tools:text="Logged in as: John Doe (Render Cloud Synced)" />
-
-            <Button
-                android:id="@+id/btn_login_signup"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:id="@+id/chip_playlists"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/spotify_green"
-                android:textStyle="bold"
-                android:text="Log In" />
-        </LinearLayout>
-    </androidx.cardview.widget.CardView>
+                android:layout_height="32dp"
+                android:background="@drawable/chip_selected_bg"
+                android:gravity="center"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:text="Playlists"
+                android:textColor="@color/spotify_black"
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
-    <!-- Pre-built Pinned "Liked Songs" Playlist Card -->
-    <androidx.cardview.widget.CardView
-        android:id="@+id/card_liked_songs_playlist"
+            <TextView
+                android:id="@+id/chip_podcasts"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/chip_unselected_bg"
+                android:gravity="center"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:text="Podcasts"
+                android:textColor="@color/spotify_white"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/chip_artists"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/chip_unselected_bg"
+                android:gravity="center"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:text="Artists"
+                android:textColor="@color/spotify_white"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/chip_downloaded"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/chip_unselected_bg"
+                android:gravity="center"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:text="Downloaded"
+                android:textColor="@color/spotify_white"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- Sort & Layout Switcher Bar -->
+    <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="72dp"
-        android:layout_marginTop="16dp"
-        app:cardCornerRadius="6dp"
-        app:cardElevation="0dp"
-        app:cardBackgroundColor="@color/spotify_card_grey">
+        android:layout_height="40dp"
+        android:layout_marginTop="8dp">
 
         <LinearLayout
-            android:layout_width="match_parent"
+            android:id="@+id/layout_sort_recents"
+            android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingStart="8dp"
-            android:paddingEnd="12dp">
-
-            <androidx.cardview.widget.CardView
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                app:cardCornerRadius="4dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="#5E35B1">
-
-                <ImageView
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/ic_favorite"
-                    app:tint="@color/spotify_white" />
-            </androidx.cardview.widget.CardView>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="14dp"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Liked Songs"
-                    android:textColor="@color/spotify_white"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/text_liked_songs_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Playlist • 0 songs"
-                    android:textColor="@color/spotify_light_grey"
-                    android:textSize="13sp" />
-            </LinearLayout>
-        </LinearLayout>
-    </androidx.cardview.widget.CardView>
-
-    <!-- Pinned "Downloaded Songs" Playlist Card -->
-    <androidx.cardview.widget.CardView
-        android:id="@+id/card_downloaded_playlist"
-        android:layout_width="match_parent"
-        android:layout_height="72dp"
-        android:layout_marginTop="10dp"
-        app:cardCornerRadius="6dp"
-        app:cardElevation="0dp"
-        app:cardBackgroundColor="@color/spotify_card_grey">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
             android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="8dp"
-            android:paddingEnd="12dp">
-
-            <androidx.cardview.widget.CardView
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                app:cardCornerRadius="4dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="@color/spotify_green">
-
-                <ImageView
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:scaleType="center"
-                    android:src="@drawable/ic_download"
-                    app:tint="@color/spotify_black" />
-            </androidx.cardview.widget.CardView>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="14dp"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Downloaded Songs"
-                    android:textColor="@color/spotify_white"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/text_downloaded_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Playlist • 0 songs"
-                    android:textColor="@color/spotify_light_grey"
-                    android:textSize="13sp" />
-            </LinearLayout>
+            android:background="?selectableItemBackground"
+            android:paddingStart="4dp"
+            android:paddingEnd="8dp">
 
             <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:src="@drawable/ic_download"
-                app:tint="@color/spotify_green" />
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_sort"
+                app:tint="@color/spotify_white" />
+
+            <TextView
+                android:id="@+id/text_sort_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="Recents"
+                android:textColor="@color/spotify_white"
+                android:textSize="13sp"
+                android:textStyle="bold" />
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
+
+        <ImageButton
+            android:id="@+id/btn_toggle_view_mode"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:background="?selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_grid_view"
+            app:tint="@color/spotify_white"
+            android:contentDescription="Switch between List and Grid view" />
+    </RelativeLayout>
 
     <ProgressBar
         android:id="@+id/progress_library"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:layout_marginTop="24dp"
+        android:layout_marginTop="16dp"
+        android:indeterminateTint="@color/spotify_green"
         android:visibility="gone" />
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recycler_playlists"
+    <!-- Scrollable Playlists -->
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="12dp" />
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Pinned System Playlists: Liked Songs & Downloaded Songs -->
+            <LinearLayout
+                android:id="@+id/layout_pinned_playlists"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <!-- 1. Liked Songs -->
+                <LinearLayout
+                    android:id="@+id/card_liked_songs_playlist"
+                    android:layout_width="match_parent"
+                    android:layout_height="72dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp"
+                    android:background="?selectableItemBackground">
+
+                    <FrameLayout
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:layout_marginStart="4dp"
+                        android:background="@drawable/bg_liked_songs_gradient">
+
+                        <ImageView
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_favorite"
+                            app:tint="@color/spotify_white" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="14dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Liked Songs"
+                            android:textColor="@color/spotify_white"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/text_liked_songs_count"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="📌 Playlist • 0 songs"
+                            android:textColor="@color/spotify_light_grey"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- 2. Downloaded Songs -->
+                <LinearLayout
+                    android:id="@+id/card_downloaded_playlist"
+                    android:layout_width="match_parent"
+                    android:layout_height="72dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp"
+                    android:background="?selectableItemBackground">
+
+                    <FrameLayout
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:layout_marginStart="4dp"
+                        android:background="@drawable/bg_downloaded_songs_tile">
+
+                        <ImageView
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_download"
+                            app:tint="@color/spotify_white" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="14dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Downloaded Songs"
+                            android:textColor="@color/spotify_white"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/text_downloaded_count"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="📌 Playlist • Saved &amp; downloaded"
+                            android:textColor="@color/spotify_light_grey"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Custom Playlists List / Grid -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recycler_playlists"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false" />
+
+            <TextView
+                android:id="@+id/text_empty_library"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="32dp"
+                android:textColor="@color/spotify_light_grey"
+                android:textSize="14sp"
+                android:visibility="gone"
+                android:text="Create a playlist to see it here" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
 </LinearLayout>

@@ -63,6 +63,9 @@ class PlaybackManager(private val context: Context) {
 
     private var playlist: MutableList<TrackDto> = mutableListOf()
     private var currentIndex: Int = -1
+    private var isPlaylistIsolated: Boolean = false
+
+    fun isIsolatedPlaylistMode(): Boolean = isPlaylistIsolated
 
     private val progressHandler = Handler(Looper.getMainLooper())
     private val progressRunnable = object : Runnable {
@@ -172,15 +175,24 @@ class PlaybackManager(private val context: Context) {
     /**
      * Start playing a track list from a specific index.
      */
-    fun playQueue(tracks: List<TrackDto>, startIndex: Int = 0) {
+    fun playQueue(tracks: List<TrackDto>, startIndex: Int = 0, isIsolated: Boolean = false) {
         if (tracks.isEmpty()) return
+        isPlaylistIsolated = isIsolated
         playlist = tracks.toMutableList()
         playedIndices.clear()
         currentIndex = if (startIndex in tracks.indices) startIndex else 0
         prepareAndPlayCurrent()
     }
 
+    /**
+     * Start playing a playlist whose playback is isolated to only its tracks.
+     */
+    fun playPlaylistQueue(tracks: List<TrackDto>, startIndex: Int = 0) {
+        playQueue(tracks, startIndex, isIsolated = true)
+    }
+
     fun playSingle(track: TrackDto) {
+        isPlaylistIsolated = false
         playlist = mutableListOf(track)
         playedIndices.clear()
         currentIndex = 0
@@ -301,18 +313,24 @@ class PlaybackManager(private val context: Context) {
 
                     if (unplayed.isNotEmpty()) {
                         currentIndex = unplayed.random()
-                    } else {
-                        // All played! Reset and start new cycle
-                        playedIndices.clear()
-                        val valid = playlist.indices.filter { idx ->
-                            !blacklistedIds.contains(playlist[idx].youtubeId)
+                        prepareAndPlayCurrent()
+                        return@withContext
+                    } else if (isPlaylistIsolated) {
+                        // Isolated playlist: If repeat enabled, reset and restart cycle within playlist
+                        if (_repeatMode.value != RepeatMode.OFF) {
+                            playedIndices.clear()
+                            val valid = playlist.indices.filter { idx ->
+                                !blacklistedIds.contains(playlist[idx].youtubeId)
+                            }
+                            if (valid.isNotEmpty()) {
+                                currentIndex = valid.random()
+                                prepareAndPlayCurrent()
+                            }
                         }
-                        if (valid.isNotEmpty()) {
-                            currentIndex = valid.random()
-                        }
+                        return@withContext
                     }
                 } else {
-                    // Sequential with blacklist skipping
+                    // Sequential playback with blacklist skipping
                     var nextIndex = currentIndex + 1
                     var found = false
                     while (nextIndex < playlist.size) {
@@ -324,21 +342,56 @@ class PlaybackManager(private val context: Context) {
                         nextIndex++
                     }
 
-                    if (!found) {
-                        if (_repeatMode.value == RepeatMode.PLAYLIST) {
-                            // Loop back to start, find first unblacklisted
+                    if (found) {
+                        prepareAndPlayCurrent()
+                        return@withContext
+                    } else if (isPlaylistIsolated) {
+                        // Isolated playlist reached end: loop back only if repeat enabled
+                        if (_repeatMode.value == RepeatMode.PLAYLIST || _repeatMode.value == RepeatMode.CONTINUOUS) {
                             for (i in playlist.indices) {
                                 if (!blacklistedIds.contains(playlist[i].youtubeId)) {
                                     currentIndex = i
-                                    found = true
-                                    break
+                                    prepareAndPlayCurrent()
+                                    return@withContext
+                                }
+                            }
+                        }
+                        return@withContext
+                    }
+                }
+
+                // If NOT isolated (e.g. played from Home/Search), fetch recommendations dynamically!
+                if (!isPlaylistIsolated) {
+                    val current = _currentTrack.value
+                    val artistQuery = current?.artist?.takeIf { it.isNotBlank() } ?: current?.title
+                    if (!artistQuery.isNullOrBlank()) {
+                        scope.launch(Dispatchers.IO) {
+                            val recResult = com.spotifyclone.app.extractor.NewPipeExtractorHelper.searchYouTubeMusic("$artistQuery songs")
+                            if (recResult.isSuccess) {
+                                val existingIds = playlist.map { it.youtubeId }.toSet()
+                                val newRecs = recResult.getOrDefault(emptyList()).filter {
+                                    !existingIds.contains(it.youtubeId) && !blacklistedIds.contains(it.youtubeId)
+                                }
+                                if (newRecs.isNotEmpty()) {
+                                    withContext(Dispatchers.Main) {
+                                        val startIdx = playlist.size
+                                        playlist.addAll(newRecs)
+                                        currentIndex = startIdx
+                                        prepareAndPlayCurrent()
+                                    }
+                                    return@launch
+                                }
+                            }
+                            // Fallback to repeat if no recommendations found
+                            withContext(Dispatchers.Main) {
+                                if (playlist.isNotEmpty()) {
+                                    currentIndex = 0
+                                    prepareAndPlayCurrent()
                                 }
                             }
                         }
                     }
                 }
-
-                prepareAndPlayCurrent()
             }
         }
     }

@@ -9,6 +9,7 @@ data class LocalPlaylist(
     val remoteId: Long? = null,
     val title: String,
     val description: String? = null,
+    val coverUrl: String? = null,
     val isOfflineOnly: Boolean = false,
     val updatedAt: Long = System.currentTimeMillis()
 )

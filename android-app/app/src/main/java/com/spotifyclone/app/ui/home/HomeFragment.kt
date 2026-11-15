@@ -98,13 +98,22 @@ class HomeFragment : Fragment() {
             items = recentItems,
             onItemClick = { item ->
                 if (item.type == "playlist") {
-                    loadCustomQuery(item.title)
+                    val fragment = com.spotifyclone.app.ui.playlist.PlaylistDetailFragment.newInstance(
+                        id = item.dataId.toLongOrNull() ?: 0L,
+                        title = item.title,
+                        description = item.subtitle,
+                        coverUrl = item.thumbnailUrl
+                    )
+                    parentFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, fragment)
+                        .addToBackStack(null)
+                        .commit()
                 } else {
                     val track = TrackDto(
                         youtubeId = item.dataId,
                         title = item.title,
                         artist = item.subtitle,
-                        durationSeconds = null,
+                        durationSeconds = 0L,
                         thumbnailUrl = item.thumbnailUrl
                     )
                     SpotifyApplication.instance.playbackManager.playSingle(track)
@@ -122,7 +131,8 @@ class HomeFragment : Fragment() {
         trackAdapter = TrackAdapter(
             tracks = quickPicks,
             onTrackClick = { _, position ->
-                SpotifyApplication.instance.playbackManager.playQueue(quickPicks, position)
+                // Play from Home: isIsolated = false (dynamic auto-recommendations continue after queue)
+                SpotifyApplication.instance.playbackManager.playQueue(quickPicks, position, isIsolated = false)
             },
             onMenuClick = { track ->
                 com.spotifyclone.app.ui.dialog.TrackOptionsHelper.showTrackOptions(requireContext(), track)
@@ -162,6 +172,22 @@ class HomeFragment : Fragment() {
 
     private fun observeRecentlyPlayed() {
         lifecycleScope.launch {
+            // Clean up any previously seeded mock/placeholder items from the database
+            withContext(Dispatchers.IO) {
+                val db = SpotifyApplication.instance.database
+                val mockIds = listOf(
+                    "PL4fGSIFgk5kWV6Vp_s99pA4",
+                    "PL8c4G7N5D-3Yj4w",
+                    "PLi7M3wD_9vP4",
+                    "PLxA687tYuMWgQ",
+                    "PLOPM123",
+                    "PLCHILL456"
+                )
+                for (id in mockIds) {
+                    db.recentlyPlayedDao().deleteByDataId(id)
+                }
+            }
+
             SpotifyApplication.instance.database.recentlyPlayedDao()
                 .getRecentItems()
                 .collectLatest { items ->
@@ -171,26 +197,11 @@ class HomeFragment : Fragment() {
                         recentGridAdapter.updateItems(recentItems)
                         binding.recyclerRecentGrid.visibility = View.VISIBLE
                     } else {
-                        // Seed default popular cards if user hasn't played anything yet
-                        seedDefaultRecentItems()
+                        recentItems.clear()
+                        recentGridAdapter.updateItems(emptyList())
+                        binding.recyclerRecentGrid.visibility = View.GONE
                     }
                 }
-        }
-    }
-
-    private fun seedDefaultRecentItems() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val defaults = listOf(
-                RecentlyPlayed(title = "Top Songs - Philippines", subtitle = "Playlist", thumbnailUrl = null, type = "playlist", dataId = "PL4fGSIFgk5kWV6Vp_s99pA4"),
-                RecentlyPlayed(title = "Justin Bieber - All Songs", subtitle = "Artist", thumbnailUrl = null, type = "playlist", dataId = "PL8c4G7N5D-3Yj4w"),
-                RecentlyPlayed(title = "Christmas Kisses", subtitle = "Ariana Grande", thumbnailUrl = null, type = "playlist", dataId = "PLi7M3wD_9vP4"),
-                RecentlyPlayed(title = "Top Hits 2024", subtitle = "Playlist", thumbnailUrl = null, type = "playlist", dataId = "PLxA687tYuMWgQ"),
-                RecentlyPlayed(title = "OPM Classics", subtitle = "Various Artists", thumbnailUrl = null, type = "playlist", dataId = "PLOPM123"),
-                RecentlyPlayed(title = "Coffeehouse Acoustic", subtitle = "Chill", thumbnailUrl = null, type = "playlist", dataId = "PLCHILL456")
-            )
-            for (item in defaults) {
-                SpotifyApplication.instance.database.recentlyPlayedDao().recordRecentlyPlayed(item)
-            }
         }
     }
 

@@ -34,7 +34,7 @@ import com.spotifyclone.app.data.local.entities.RecentlyPlayed
         OfflineSongFolder::class,
         RecentSearch::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

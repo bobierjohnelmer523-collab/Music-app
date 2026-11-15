@@ -14,13 +14,15 @@ data class TrackDto(
 
 data class PlaylistRequest(
     @SerializedName("title") val title: String,
-    @SerializedName("description") val description: String? = null
+    @SerializedName("description") val description: String? = null,
+    @SerializedName("coverUrl") val coverUrl: String? = null
 )
 
 data class PlaylistDto(
     @SerializedName("id") val id: Long,
     @SerializedName("title") val title: String,
     @SerializedName("description") val description: String?,
+    @SerializedName("coverUrl") val coverUrl: String? = null,
     @SerializedName("createdAt") val createdAt: String?,
     @SerializedName("updatedAt") val updatedAt: String?,
     @SerializedName("tracks") val tracks: List<TrackDto> = emptyList()

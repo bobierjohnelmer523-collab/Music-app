@@ -267,8 +267,7 @@ class SearchFragment : Fragment() {
             binding.textSearchEmpty.visibility = View.GONE
         } else {
             binding.layoutRecentSearchesContainer.visibility = View.GONE
-            binding.textSearchEmpty.visibility = View.VISIBLE
-            binding.textSearchEmpty.text = "Play what you love • Search for artists, songs, or podcasts"
+            binding.textSearchEmpty.visibility = View.GONE
         }
     }
 
