@@ -1,5 +1,6 @@
 package com.spotifyclone.app.ui.adapter
 
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,9 +12,23 @@ import com.spotifyclone.app.databinding.ItemPlaylistBinding
 import com.spotifyclone.app.databinding.ItemPlaylistGridBinding
 import com.spotifyclone.app.model.PlaylistDto
 
+enum class LibraryItemType {
+    LIKED_SONGS,
+    DOWNLOADED_SONGS,
+    CUSTOM_PLAYLIST
+}
+
+data class LibraryItem(
+    val type: LibraryItemType,
+    val title: String,
+    val details: String,
+    val coverUrl: String? = null,
+    val playlistDto: PlaylistDto? = null
+)
+
 class PlaylistAdapter(
-    private var playlists: List<PlaylistDto>,
-    private val onPlaylistClick: (PlaylistDto) -> Unit,
+    private var items: List<LibraryItem>,
+    private val onItemClick: (LibraryItem) -> Unit,
     private val onOptionsClick: (PlaylistDto, View) -> Unit,
     private var isGridView: Boolean = false
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
@@ -30,8 +45,8 @@ class PlaylistAdapter(
 
     fun isGrid(): Boolean = isGridView
 
-    fun updatePlaylists(newPlaylists: List<PlaylistDto>) {
-        this.playlists = newPlaylists
+    fun updateItems(newItems: List<LibraryItem>) {
+        this.items = newItems
         notifyDataSetChanged()
     }
 
@@ -54,48 +69,77 @@ class PlaylistAdapter(
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        val playlist = playlists[position]
+        val item = items[position]
         if (holder is ListViewHolder) {
-            holder.bind(playlist)
+            holder.bind(item)
         } else if (holder is GridViewHolder) {
-            holder.bind(playlist)
+            holder.bind(item)
         }
     }
 
-    override fun getItemCount(): Int = playlists.size
-
-    private fun loadCover(context: android.content.Context, playlist: PlaylistDto, imageView: ImageView) {
-        val cover = playlist.coverUrl ?: playlist.tracks.firstOrNull()?.thumbnailUrl
-        if (!cover.isNullOrEmpty()) {
-            imageView.imageTintList = null
-            Glide.with(context)
-                .load(cover)
-                .placeholder(R.drawable.ic_library)
-                .error(R.drawable.ic_library)
-                .centerCrop()
-                .into(imageView)
-        } else {
-            imageView.setImageResource(R.drawable.ic_library)
-            imageView.setColorFilter(context.getColor(R.color.spotify_green))
-        }
-    }
+    override fun getItemCount(): Int = items.size
 
     inner class ListViewHolder(private val binding: ItemPlaylistBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(playlist: PlaylistDto) {
-            binding.textPlaylistTitle.text = playlist.title
-            val count = playlist.tracks.size
-            binding.textPlaylistDetails.text = "Playlist • $count ${if (count == 1) "song" else "songs"}"
+        fun bind(item: LibraryItem) {
+            val context = itemView.context
+            binding.textPlaylistTitle.text = item.title
+            binding.textPlaylistDetails.text = item.details
 
-            loadCover(itemView.context, playlist, binding.imgPlaylistCover)
+            when (item.type) {
+                LibraryItemType.LIKED_SONGS -> {
+                    binding.imgPinIcon.visibility = View.VISIBLE
+                    binding.btnPlaylistOptionsMenu.visibility = View.GONE
+                    binding.cardPlaylistCover.setBackgroundResource(R.drawable.bg_liked_songs_gradient)
+                    binding.imgPlaylistCover.setBackgroundResource(R.drawable.bg_liked_songs_gradient)
+                    binding.imgPlaylistCover.setImageResource(R.drawable.ic_favorite)
+                    binding.imgPlaylistCover.scaleType = ImageView.ScaleType.CENTER
+                    binding.imgPlaylistCover.imageTintList = null
+                    binding.imgPlaylistCover.setColorFilter(Color.WHITE)
+                }
+                LibraryItemType.DOWNLOADED_SONGS -> {
+                    binding.imgPinIcon.visibility = View.VISIBLE
+                    binding.btnPlaylistOptionsMenu.visibility = View.GONE
+                    binding.cardPlaylistCover.setBackgroundResource(R.drawable.bg_downloaded_songs_tile)
+                    binding.imgPlaylistCover.setBackgroundResource(R.drawable.bg_downloaded_songs_tile)
+                    binding.imgPlaylistCover.setImageResource(R.drawable.ic_download)
+                    binding.imgPlaylistCover.scaleType = ImageView.ScaleType.CENTER
+                    binding.imgPlaylistCover.imageTintList = null
+                    binding.imgPlaylistCover.setColorFilter(Color.WHITE)
+                }
+                LibraryItemType.CUSTOM_PLAYLIST -> {
+                    binding.imgPinIcon.visibility = View.GONE
+                    binding.btnPlaylistOptionsMenu.visibility = View.VISIBLE
+                    binding.cardPlaylistCover.setBackgroundColor(context.getColor(R.color.spotify_card_grey))
+                    binding.imgPlaylistCover.background = null
+                    binding.imgPlaylistCover.scaleType = ImageView.ScaleType.CENTER_CROP
+
+                    val cover = item.coverUrl ?: item.playlistDto?.tracks?.firstOrNull()?.thumbnailUrl
+                    if (!cover.isNullOrEmpty()) {
+                        binding.imgPlaylistCover.imageTintList = null
+                        binding.imgPlaylistCover.clearColorFilter()
+                        Glide.with(context)
+                            .load(cover)
+                            .placeholder(R.drawable.ic_library)
+                            .error(R.drawable.ic_library)
+                            .centerCrop()
+                            .into(binding.imgPlaylistCover)
+                    } else {
+                        binding.imgPlaylistCover.setImageResource(R.drawable.ic_library)
+                        binding.imgPlaylistCover.setColorFilter(context.getColor(R.color.spotify_green))
+                    }
+                }
+            }
 
             binding.root.setOnClickListener {
-                onPlaylistClick(playlist)
+                onItemClick(item)
             }
 
             binding.btnPlaylistOptionsMenu.setOnClickListener { view ->
-                onOptionsClick(playlist, view)
+                item.playlistDto?.let { dto ->
+                    onOptionsClick(dto, view)
+                }
             }
         }
     }
@@ -103,19 +147,61 @@ class PlaylistAdapter(
     inner class GridViewHolder(private val binding: ItemPlaylistGridBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(playlist: PlaylistDto) {
-            binding.textPlaylistGridTitle.text = playlist.title
-            val count = playlist.tracks.size
-            binding.textPlaylistGridDetails.text = "Playlist • $count ${if (count == 1) "song" else "songs"}"
+        fun bind(item: LibraryItem) {
+            val context = itemView.context
+            binding.textPlaylistGridTitle.text = item.title
+            binding.textPlaylistGridDetails.text = item.details
 
-            loadCover(itemView.context, playlist, binding.imgPlaylistGridCover)
+            when (item.type) {
+                LibraryItemType.LIKED_SONGS -> {
+                    binding.imgGridPinIcon.visibility = View.VISIBLE
+                    binding.cardPlaylistGridCover.setBackgroundResource(R.drawable.bg_liked_songs_gradient)
+                    binding.imgPlaylistGridCover.setBackgroundResource(R.drawable.bg_liked_songs_gradient)
+                    binding.imgPlaylistGridCover.setImageResource(R.drawable.ic_favorite)
+                    binding.imgPlaylistGridCover.scaleType = ImageView.ScaleType.CENTER
+                    binding.imgPlaylistGridCover.imageTintList = null
+                    binding.imgPlaylistGridCover.setColorFilter(Color.WHITE)
+                }
+                LibraryItemType.DOWNLOADED_SONGS -> {
+                    binding.imgGridPinIcon.visibility = View.VISIBLE
+                    binding.cardPlaylistGridCover.setBackgroundResource(R.drawable.bg_downloaded_songs_tile)
+                    binding.imgPlaylistGridCover.setBackgroundResource(R.drawable.bg_downloaded_songs_tile)
+                    binding.imgPlaylistGridCover.setImageResource(R.drawable.ic_download)
+                    binding.imgPlaylistGridCover.scaleType = ImageView.ScaleType.CENTER
+                    binding.imgPlaylistGridCover.imageTintList = null
+                    binding.imgPlaylistGridCover.setColorFilter(Color.WHITE)
+                }
+                LibraryItemType.CUSTOM_PLAYLIST -> {
+                    binding.imgGridPinIcon.visibility = View.GONE
+                    binding.cardPlaylistGridCover.setBackgroundColor(context.getColor(R.color.spotify_card_grey))
+                    binding.imgPlaylistGridCover.background = null
+                    binding.imgPlaylistGridCover.scaleType = ImageView.ScaleType.CENTER_CROP
+
+                    val cover = item.coverUrl ?: item.playlistDto?.tracks?.firstOrNull()?.thumbnailUrl
+                    if (!cover.isNullOrEmpty()) {
+                        binding.imgPlaylistGridCover.imageTintList = null
+                        binding.imgPlaylistGridCover.clearColorFilter()
+                        Glide.with(context)
+                            .load(cover)
+                            .placeholder(R.drawable.ic_library)
+                            .error(R.drawable.ic_library)
+                            .centerCrop()
+                            .into(binding.imgPlaylistGridCover)
+                    } else {
+                        binding.imgPlaylistGridCover.setImageResource(R.drawable.ic_library)
+                        binding.imgPlaylistGridCover.setColorFilter(context.getColor(R.color.spotify_green))
+                    }
+                }
+            }
 
             binding.root.setOnClickListener {
-                onPlaylistClick(playlist)
+                onItemClick(item)
             }
 
             binding.root.setOnLongClickListener { view ->
-                onOptionsClick(playlist, view)
+                item.playlistDto?.let { dto ->
+                    onOptionsClick(dto, view)
+                }
                 true
             }
         }

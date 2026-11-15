@@ -67,7 +67,7 @@
                 android:paddingTop="6dp"
                 android:paddingEnd="14dp"
                 android:paddingBottom="6dp"
-                android:text="📁 Choose from Gallery"
+                android:text="Choose from Gallery"
                 android:textColor="@color/spotify_white"
                 android:textSize="12sp"
                 android:textStyle="bold" />

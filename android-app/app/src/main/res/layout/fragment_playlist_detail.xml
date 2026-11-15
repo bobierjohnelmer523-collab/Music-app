@@ -89,7 +89,7 @@
                 android:paddingTop="3dp"
                 android:paddingEnd="10dp"
                 android:paddingBottom="3dp"
-                android:text="✏️ Edit Cover"
+                android:text="Edit Cover"
                 android:textColor="@color/spotify_white"
                 android:textSize="11sp"
                 android:textStyle="bold" />

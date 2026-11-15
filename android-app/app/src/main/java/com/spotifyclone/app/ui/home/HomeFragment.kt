@@ -66,13 +66,16 @@ class HomeFragment : Fragment() {
         if (ApiClient.isLoggedIn()) {
             val username = ApiClient.getUsername() ?: "User"
             val initial = username.firstOrNull()?.uppercaseChar()?.toString() ?: "U"
+            binding.textAvatarInitial.visibility = View.VISIBLE
+            binding.imgAvatarIcon.visibility = View.GONE
             binding.textAvatarInitial.text = initial
 
             binding.btnProfileAvatar.setOnClickListener {
                 showUserProfileDialog(username)
             }
         } else {
-            binding.textAvatarInitial.text = "👤"
+            binding.textAvatarInitial.visibility = View.GONE
+            binding.imgAvatarIcon.visibility = View.VISIBLE
             binding.btnProfileAvatar.setOnClickListener {
                 startActivity(Intent(requireContext(), AuthActivity::class.java))
             }

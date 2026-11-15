@@ -36,17 +36,33 @@
         android:textColor="@color/spotify_white"
         android:textSize="14sp"
         android:textStyle="bold"
-        tools:text="Playlist Title" />
+        tools:text="Liked Songs" />
 
-    <TextView
-        android:id="@+id/text_playlist_grid_details"
-        android:layout_width="match_parent"
+    <LinearLayout
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textColor="@color/spotify_light_grey"
-        android:textSize="12sp"
-        tools:text="Playlist • Jel." />
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <ImageView
+            android:id="@+id/img_grid_pin_icon"
+            android:layout_width="10dp"
+            android:layout_height="10dp"
+            android:layout_marginEnd="4dp"
+            android:src="@drawable/ic_pin"
+            app:tint="@color/spotify_green"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/text_playlist_grid_details"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/spotify_light_grey"
+            android:textSize="12sp"
+            tools:text="Playlist • 0 songs" />
+    </LinearLayout>
 
 </LinearLayout>

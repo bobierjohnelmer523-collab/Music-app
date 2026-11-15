@@ -37,6 +37,15 @@
                     android:textColor="@color/spotify_black"
                     android:textSize="16sp"
                     android:textStyle="bold" />
+
+                <ImageView
+                    android:id="@+id/img_avatar_icon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_person"
+                    android:visibility="gone"
+                    app:tint="@color/spotify_black" />
             </androidx.cardview.widget.CardView>
 
             <HorizontalScrollView

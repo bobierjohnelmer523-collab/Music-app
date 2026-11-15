@@ -24,6 +24,8 @@ import com.spotifyclone.app.data.local.entities.LocalPlaylist
 import com.spotifyclone.app.databinding.FragmentLibraryBinding
 import com.spotifyclone.app.model.PlaylistDto
 import com.spotifyclone.app.model.PlaylistRequest
+import com.spotifyclone.app.ui.adapter.LibraryItem
+import com.spotifyclone.app.ui.adapter.LibraryItemType
 import com.spotifyclone.app.ui.adapter.PlaylistAdapter
 import com.spotifyclone.app.ui.auth.AuthActivity
 import com.spotifyclone.app.ui.dialog.CustomDialogHelper
@@ -41,7 +43,11 @@ class LibraryFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var playlistAdapter: PlaylistAdapter
-    private val playlists = mutableListOf<PlaylistDto>()
+    private val libraryItems = mutableListOf<LibraryItem>()
+    private val userPlaylists = mutableListOf<PlaylistDto>()
+
+    private var likedCount: Int = 0
+    private var downloadedCount: Int = 0
     private var isGridView = false
 
     // Photo/GIF Picker for Playlist Creation
@@ -91,12 +97,15 @@ class LibraryFragment : Fragment() {
         if (ApiClient.isLoggedIn()) {
             val username = ApiClient.getUsername() ?: "User"
             val initial = username.firstOrNull()?.uppercaseChar()?.toString() ?: "U"
+            binding.textAvatarInitial.visibility = View.VISIBLE
+            binding.imgAvatarIcon.visibility = View.GONE
             binding.textAvatarInitial.text = initial
             binding.btnProfileAvatar.setOnClickListener {
                 showAccountDialog(username)
             }
         } else {
-            binding.textAvatarInitial.text = "👤"
+            binding.textAvatarInitial.visibility = View.GONE
+            binding.imgAvatarIcon.visibility = View.VISIBLE
             binding.btnProfileAvatar.setOnClickListener {
                 startActivity(Intent(requireContext(), AuthActivity::class.java))
             }
@@ -122,7 +131,8 @@ class LibraryFragment : Fragment() {
             SpotifyApplication.instance.database.likedSongDao()
                 .getLikedCount()
                 .collectLatest { count ->
-                    binding.textLikedSongsCount.text = "📌 Playlist • $count ${if (count == 1) "song" else "songs"}"
+                    likedCount = count
+                    rebuildLibraryItems()
                 }
         }
     }
@@ -132,27 +142,44 @@ class LibraryFragment : Fragment() {
             SpotifyApplication.instance.database.downloadedTrackDao()
                 .getAllDownloadedTracks()
                 .collectLatest { list ->
-                    val count = list.size
-                    binding.textDownloadedCount.text = "📌 Playlist • $count offline ${if (count == 1) "song" else "songs"}"
+                    downloadedCount = list.size
+                    rebuildLibraryItems()
                 }
         }
     }
 
     private fun setupRecyclerView() {
         playlistAdapter = PlaylistAdapter(
-            playlists = playlists,
-            onPlaylistClick = { playlist ->
-                // Open PlaylistDetailFragment instead of directly playing
-                val fragment = PlaylistDetailFragment.newInstance(
-                    id = playlist.id,
-                    title = playlist.title,
-                    description = playlist.description,
-                    coverUrl = playlist.coverUrl
-                )
-                parentFragmentManager.beginTransaction()
-                    .replace(R.id.fragment_container, fragment)
-                    .addToBackStack(null)
-                    .commit()
+            items = libraryItems,
+            onItemClick = { item ->
+                when (item.type) {
+                    LibraryItemType.LIKED_SONGS -> {
+                        parentFragmentManager.beginTransaction()
+                            .replace(R.id.fragment_container, LikedSongsFragment())
+                            .addToBackStack(null)
+                            .commit()
+                    }
+                    LibraryItemType.DOWNLOADED_SONGS -> {
+                        parentFragmentManager.beginTransaction()
+                            .replace(R.id.fragment_container, DownloadsFragment())
+                            .addToBackStack(null)
+                            .commit()
+                    }
+                    LibraryItemType.CUSTOM_PLAYLIST -> {
+                        item.playlistDto?.let { playlist ->
+                            val fragment = PlaylistDetailFragment.newInstance(
+                                id = playlist.id,
+                                title = playlist.title,
+                                description = playlist.description,
+                                coverUrl = playlist.coverUrl
+                            )
+                            parentFragmentManager.beginTransaction()
+                                .replace(R.id.fragment_container, fragment)
+                                .addToBackStack(null)
+                                .commit()
+                        }
+                    }
+                }
             },
             onOptionsClick = { playlist, _ ->
                 showPlaylistOptionsMenu(playlist)
@@ -176,6 +203,48 @@ class LibraryFragment : Fragment() {
         )
     }
 
+    private fun rebuildLibraryItems() {
+        val items = mutableListOf<LibraryItem>()
+
+        // 1. Liked Songs (Follows current List or Grid view)
+        items.add(
+            LibraryItem(
+                type = LibraryItemType.LIKED_SONGS,
+                title = "Liked Songs",
+                details = "Playlist • $likedCount ${if (likedCount == 1) "song" else "songs"}"
+            )
+        )
+
+        // 2. Downloaded Songs (Follows current List or Grid view)
+        items.add(
+            LibraryItem(
+                type = LibraryItemType.DOWNLOADED_SONGS,
+                title = "Downloaded Songs",
+                details = "Playlist • $downloadedCount offline ${if (downloadedCount == 1) "song" else "songs"}"
+            )
+        )
+
+        // 3. Custom Playlists
+        for (p in userPlaylists) {
+            val count = p.tracks.size
+            items.add(
+                LibraryItem(
+                    type = LibraryItemType.CUSTOM_PLAYLIST,
+                    title = p.title,
+                    details = "Playlist • $count ${if (count == 1) "song" else "songs"}",
+                    coverUrl = p.coverUrl,
+                    playlistDto = p
+                )
+            )
+        }
+
+        libraryItems.clear()
+        libraryItems.addAll(items)
+        playlistAdapter.updateItems(libraryItems)
+
+        binding.textEmptyLibrary.visibility = View.GONE
+    }
+
     private fun setupListeners() {
         // Search Library icon
         binding.btnLibrarySearch.setOnClickListener {
@@ -194,22 +263,6 @@ class LibraryFragment : Fragment() {
         // Sort Recents
         binding.layoutSortRecents.setOnClickListener {
             showSortMenu()
-        }
-
-        // Liked Songs card
-        binding.cardLikedSongsPlaylist.setOnClickListener {
-            parentFragmentManager.beginTransaction()
-                .replace(R.id.fragment_container, LikedSongsFragment())
-                .addToBackStack(null)
-                .commit()
-        }
-
-        // Downloaded Songs card
-        binding.cardDownloadedPlaylist.setOnClickListener {
-            parentFragmentManager.beginTransaction()
-                .replace(R.id.fragment_container, DownloadsFragment())
-                .addToBackStack(null)
-                .commit()
         }
 
         // Create Playlist button
@@ -255,18 +308,18 @@ class LibraryFragment : Fragment() {
                 when (which) {
                     0 -> {
                         binding.textSortLabel.text = "Recents"
-                        playlists.sortByDescending { it.updatedAt ?: "" }
-                        playlistAdapter.updatePlaylists(playlists.toList())
+                        userPlaylists.sortByDescending { it.updatedAt ?: "" }
+                        rebuildLibraryItems()
                     }
                     1 -> {
                         binding.textSortLabel.text = "Recently Added"
-                        playlists.sortByDescending { it.id }
-                        playlistAdapter.updatePlaylists(playlists.toList())
+                        userPlaylists.sortByDescending { it.id }
+                        rebuildLibraryItems()
                     }
                     2 -> {
                         binding.textSortLabel.text = "Alphabetical"
-                        playlists.sortBy { it.title.lowercase() }
-                        playlistAdapter.updatePlaylists(playlists.toList())
+                        userPlaylists.sortBy { it.title.lowercase() }
+                        rebuildLibraryItems()
                     }
                 }
             }
@@ -418,11 +471,10 @@ class LibraryFragment : Fragment() {
     }
 
     private fun deletePlaylist(playlist: PlaylistDto) {
-        // Immediate optimistic removal from screen
-        val itemIndex = playlists.indexOfFirst { it.id == playlist.id || it.title == playlist.title }
+        val itemIndex = userPlaylists.indexOfFirst { it.id == playlist.id || it.title == playlist.title }
         if (itemIndex != -1) {
-            playlists.removeAt(itemIndex)
-            playlistAdapter.updatePlaylists(playlists.toList())
+            userPlaylists.removeAt(itemIndex)
+            rebuildLibraryItems()
         }
         Toast.makeText(context, "Playlist \"${playlist.title}\" deleted", Toast.LENGTH_SHORT).show()
 
@@ -488,15 +540,9 @@ class LibraryFragment : Fragment() {
 
             withContext(Dispatchers.Main) {
                 binding.progressLibrary.visibility = View.GONE
-                playlists.clear()
-                playlists.addAll(dtos)
-                playlistAdapter.updatePlaylists(playlists.toList())
-
-                if (playlists.isEmpty()) {
-                    binding.textEmptyLibrary.visibility = View.VISIBLE
-                } else {
-                    binding.textEmptyLibrary.visibility = View.GONE
-                }
+                userPlaylists.clear()
+                userPlaylists.addAll(dtos)
+                rebuildLibraryItems()
             }
         }
     }
