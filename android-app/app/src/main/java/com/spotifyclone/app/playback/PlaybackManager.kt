@@ -8,6 +8,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
@@ -16,10 +17,13 @@ import com.spotifyclone.app.SpotifyApplication
 import com.spotifyclone.app.extractor.NewPipeExtractorHelper
 import com.spotifyclone.app.extractor.SourceBrokenException
 import com.spotifyclone.app.model.TrackDto
+import com.spotifyclone.app.data.local.entities.DownloadedTrack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -58,10 +62,12 @@ class PlaybackManager(private val context: Context) {
     private val _repeatMode = MutableStateFlow(RepeatMode.OFF)
     val repeatMode: StateFlow<RepeatMode> = _repeatMode
 
+    private var currentPlayJob: Job? = null
     private var repeatCountRemaining: Int = 0
     private val playedIndices = mutableSetOf<Int>()
 
     private var playlist: MutableList<TrackDto> = mutableListOf()
+    private var offlineQueueLocalUris: Map<String, String>? = null
     private var currentIndex: Int = -1
     private var isPlaylistIsolated: Boolean = false
 
@@ -99,8 +105,11 @@ class PlaybackManager(private val context: Context) {
             .setReadTimeoutMs(15000)
             .setAllowCrossProtocolRedirects(true)
 
-        val mediaSourceFactory = DefaultMediaSourceFactory(context)
-            .setDataSourceFactory(httpDataSourceFactory)
+        // DefaultDataSource routes file:// URIs to local storage and HTTP(S) to
+        // the configured network source, so downloaded tracks work offline.
+        val mediaSourceFactory = DefaultMediaSourceFactory(
+            DefaultDataSource.Factory(context, httpDataSourceFactory)
+        )
 
         // Low-latency load control: starts playback after just 1 second buffer instead of 50s!
         val loadControl = DefaultLoadControl.Builder()
@@ -176,8 +185,33 @@ class PlaybackManager(private val context: Context) {
      * Start playing a track list from a specific index.
      */
     fun playQueue(tracks: List<TrackDto>, startIndex: Int = 0, isIsolated: Boolean = false) {
+        startQueue(tracks, startIndex, isIsolated, null)
+    }
+
+    fun playDownloadedQueue(tracks: List<DownloadedTrack>, startIndex: Int = 0) {
+        if (tracks.isEmpty()) return
+        val trackDtos = tracks.map { track ->
+            TrackDto(
+                youtubeId = track.youtubeId,
+                title = track.title,
+                artist = track.artist,
+                durationSeconds = track.durationSeconds,
+                thumbnailUrl = track.thumbnailUrl
+            )
+        }
+        val localUris = tracks.associate { it.youtubeId to it.localUri }
+        startQueue(trackDtos, startIndex, true, localUris)
+    }
+
+    private fun startQueue(
+        tracks: List<TrackDto>,
+        startIndex: Int,
+        isIsolated: Boolean,
+        offlineLocalUris: Map<String, String>?
+    ) {
         if (tracks.isEmpty()) return
         isPlaylistIsolated = isIsolated
+        offlineQueueLocalUris = offlineLocalUris
         playlist = tracks.toMutableList()
         playedIndices.clear()
         currentIndex = if (startIndex in tracks.indices) startIndex else 0
@@ -192,6 +226,7 @@ class PlaybackManager(private val context: Context) {
     }
 
     fun playSingle(track: TrackDto) {
+        offlineQueueLocalUris = null
         isPlaylistIsolated = false
         playlist = mutableListOf(track)
         playedIndices.clear()
@@ -200,6 +235,7 @@ class PlaybackManager(private val context: Context) {
     }
 
     fun addToQueue(track: TrackDto) {
+        offlineQueueLocalUris = null
         if (playlist.isEmpty()) {
             playSingle(track)
         } else {
@@ -210,6 +246,20 @@ class PlaybackManager(private val context: Context) {
     private fun prepareAndPlayCurrent() {
         if (currentIndex !in playlist.indices) return
         val track = playlist[currentIndex]
+
+        // 1. Cancel any active playback preparation job immediately
+        currentPlayJob?.cancel()
+
+        // 2. Immediately stop/pause previous audio to eliminate overlapping background playback
+        exoPlayer?.pause()
+        exoPlayer?.clearMediaItems()
+
+        // 3. Reset playback position and state immediately
+        _progressMs.value = 0L
+        _durationMs.value = (track.durationSeconds ?: 0) * 1000L
+        _isPlaying.value = false
+
+        // 4. Update current track immediately for instant UI feedback
         _currentTrack.value = track
         playedIndices.add(currentIndex)
 
@@ -217,42 +267,88 @@ class PlaybackManager(private val context: Context) {
             repeatCountRemaining = 1
         }
 
-        // Record in recently played (deduplicated & pushed to position 0)
+        // Record in recently played async
         scope.launch(Dispatchers.IO) {
-            SpotifyApplication.instance.database.recentlyPlayedDao().recordRecentlyPlayed(
-                com.spotifyclone.app.data.local.entities.RecentlyPlayed(
-                    title = track.title,
-                    subtitle = track.artist ?: "Unknown Artist",
-                    thumbnailUrl = track.thumbnailUrl,
-                    type = "track",
-                    dataId = track.youtubeId
+            try {
+                SpotifyApplication.instance.database.recentlyPlayedDao().recordRecentlyPlayed(
+                    com.spotifyclone.app.data.local.entities.RecentlyPlayed(
+                        title = track.title,
+                        subtitle = track.artist ?: "Unknown Artist",
+                        thumbnailUrl = track.thumbnailUrl,
+                        type = "track",
+                        dataId = if (track.youtubeId.isNotBlank()) track.youtubeId else (track.spotifyId ?: track.title)
+                    )
                 )
-            )
+            } catch (e: Exception) {
+                // History is optional; a database write must not terminate playback.
+                Log.w("PlaybackManager", "Could not record recently played track", e)
+            }
         }
 
-        scope.launch {
+        currentPlayJob = scope.launch {
             try {
-                // 1. Check if track is downloaded locally
-                val downloaded = SpotifyApplication.instance.database
-                    .downloadedTrackDao()
-                    .getDownloadedTrack(track.youtubeId)
-
-                val mediaUri: Uri = if (downloaded != null && File(downloaded.localUri).exists()) {
-                    Log.d("PlaybackManager", "Playing from offline storage: ${downloaded.localUri}")
-                    Uri.fromFile(File(downloaded.localUri))
-                } else {
-                    // 2. Resolve stream URL just-in-time
-                    val resolveResult = NewPipeExtractorHelper.resolveStreamUrl(track.youtubeId)
-                    if (resolveResult.isFailure) {
-                        val error = resolveResult.exceptionOrNull()
-                        if (error is SourceBrokenException) {
-                            Log.e("PlaybackManager", "Source broken exception detected!", error)
-                            _isSourceBroken.value = true
+                var currentTrackDto = track
+                // Spotify-sourced track: resolve YouTube Music audio match
+                if (currentTrackDto.youtubeId.isBlank()) {
+                    val resolved = com.spotifyclone.app.spotify.SpotifyTrackResolver.resolve(currentTrackDto)
+                    if (resolved != null) {
+                        currentTrackDto = resolved
+                        if (currentIndex in playlist.indices) {
+                            playlist[currentIndex] = resolved
+                        }
+                        _currentTrack.value = resolved
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                context,
+                                "Couldn't find \"${track.title}\" on YouTube Music",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            playNext()
                         }
                         return@launch
                     }
-                    Uri.parse(resolveResult.getOrThrow())
                 }
+
+                if (!isActive) return@launch
+
+                // 1. Check if track is downloaded locally
+                val offlineUris = offlineQueueLocalUris
+                val mediaUri: Uri = if (offlineUris != null) {
+                    val localPath = offlineUris[currentTrackDto.youtubeId]
+                    val localFile = localPath?.let(::File)
+                    if (localFile == null || !localFile.isFile || localFile.length() <= 0L) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Downloaded file is missing. Download this song again.", Toast.LENGTH_LONG).show()
+                        }
+                        return@launch
+                    }
+                    Log.d("PlaybackManager", "Playing from offline playlist: ${localFile.absolutePath}")
+                    Uri.fromFile(localFile)
+                } else {
+                    val downloaded = withContext(Dispatchers.IO) {
+                        SpotifyApplication.instance.database
+                            .downloadedTrackDao()
+                            .getDownloadedTrack(currentTrackDto.youtubeId)
+                    }
+                    if (downloaded != null && File(downloaded.localUri).let { it.isFile && it.length() > 0L }) {
+                        Uri.fromFile(File(downloaded.localUri))
+                    } else {
+                        // 2. Resolve stream URL just-in-time for tracks not downloaded locally.
+                        val resolveResult = NewPipeExtractorHelper.resolveStreamUrl(currentTrackDto.youtubeId)
+                        if (resolveResult.isFailure) {
+                            val error = resolveResult.exceptionOrNull()
+                            if (error is SourceBrokenException) {
+                                Log.e("PlaybackManager", "Source broken exception detected!", error)
+                                _isSourceBroken.value = true
+                            }
+                            return@launch
+                        }
+                        Uri.parse(resolveResult.getOrThrow())
+                    }
+                }
+
+                if (!isActive) return@launch
 
                 // 3. Play stream in ExoPlayer
                 val mediaItem = MediaItem.fromUri(mediaUri)
@@ -263,13 +359,29 @@ class PlaybackManager(private val context: Context) {
                 }
                 _isSourceBroken.value = false
 
-                // 4. Asynchronously pre-fetch next track in background for 0ms delay on skip/next
+                // 4. Asynchronously pre-fetch next tracks in background for instant playback on skip/next
                 val nextIdx = currentIndex + 1
-                if (nextIdx in playlist.indices) {
+                if (offlineQueueLocalUris == null && nextIdx in playlist.indices) {
                     val nextTrack = playlist[nextIdx]
                     scope.launch(Dispatchers.IO) {
                         try {
-                            NewPipeExtractorHelper.resolveStreamUrl(nextTrack.youtubeId)
+                            val targetId = if (nextTrack.youtubeId.isBlank()) {
+                                val resolvedNext = com.spotifyclone.app.spotify.SpotifyTrackResolver.resolve(nextTrack)
+                                if (resolvedNext != null) {
+                                    withContext(Dispatchers.Main) {
+                                        if (nextIdx in playlist.indices &&
+                                            playlist[nextIdx].youtubeId.isBlank()
+                                        ) {
+                                            playlist[nextIdx] = resolvedNext
+                                        }
+                                    }
+                                    resolvedNext.youtubeId
+                                } else null
+                            } else nextTrack.youtubeId
+
+                            if (!targetId.isNullOrBlank()) {
+                                NewPipeExtractorHelper.resolveStreamUrl(targetId)
+                            }
                         } catch (e: Exception) {
                             // Non-fatal prefetch failure
                         }
@@ -277,6 +389,9 @@ class PlaybackManager(private val context: Context) {
                 }
 
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) {
+                    return@launch
+                }
                 Log.e("PlaybackManager", "Failed to play current track", e)
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Could not play track: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -365,7 +480,7 @@ class PlaybackManager(private val context: Context) {
                     val current = _currentTrack.value
                     val artistQuery = current?.artist?.takeIf { it.isNotBlank() } ?: current?.title
                     if (!artistQuery.isNullOrBlank()) {
-                        scope.launch(Dispatchers.IO) {
+                        scope.launch(Dispatchers.IO) recommendations@{
                             val recResult = com.spotifyclone.app.extractor.NewPipeExtractorHelper.searchYouTubeMusic("$artistQuery songs")
                             if (recResult.isSuccess) {
                                 val existingIds = playlist.map { it.youtubeId }.toSet()
@@ -379,7 +494,7 @@ class PlaybackManager(private val context: Context) {
                                         currentIndex = startIdx
                                         prepareAndPlayCurrent()
                                     }
-                                    return@launch
+                                    return@recommendations
                                 }
                             }
                             // Fallback to repeat if no recommendations found

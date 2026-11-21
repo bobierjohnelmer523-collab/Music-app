@@ -10,6 +10,7 @@
     <color name="spotify_white">#FFFFFF</color>
     <color name="spotify_red">#E91429</color>
     <color name="spotify_amber">#FFA000</color>
+    <color name="spotify_blue">#0078FF</color>
     <color name="transparent">#00000000</color>
     <color name="mini_player_bg">#242424</color>
 </resources>

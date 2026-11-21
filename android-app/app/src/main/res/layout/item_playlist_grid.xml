@@ -9,22 +9,39 @@
     android:padding="6dp"
     android:background="?selectableItemBackground">
 
-    <androidx.cardview.widget.CardView
-        android:id="@+id/card_playlist_grid_cover"
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="150dp"
-        app:cardCornerRadius="6dp"
-        app:cardElevation="0dp"
-        app:cardBackgroundColor="@color/spotify_card_grey">
+        android:layout_height="150dp">
 
-        <ImageView
-            android:id="@+id/img_playlist_grid_cover"
+        <androidx.cardview.widget.CardView
+            android:id="@+id/card_playlist_grid_cover"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:scaleType="centerCrop"
-            android:src="@drawable/ic_library"
-            app:tint="@color/spotify_green" />
-    </androidx.cardview.widget.CardView>
+            app:cardCornerRadius="6dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@color/spotify_card_grey">
+
+            <ImageView
+                android:id="@+id/img_playlist_grid_cover"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_library"
+                app:tint="@color/spotify_green" />
+        </androidx.cardview.widget.CardView>
+
+        <ImageButton
+            android:id="@+id/btn_playlist_grid_options"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="4dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:contentDescription="Options"
+            android:src="@drawable/ic_more_vert"
+            android:visibility="gone"
+            app:tint="@color/spotify_white" />
+    </FrameLayout>
 
     <TextView
         android:id="@+id/text_playlist_grid_title"

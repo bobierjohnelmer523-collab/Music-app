@@ -17,7 +17,8 @@ data class DownloadItem(
     val thumbnailUrl: String?,
     val durationSeconds: Long?,
     val isDownloading: Boolean = false,
-    val progressPercent: Int = 100
+    val progressPercent: Int = 100,
+    val localUri: String? = null
 )
 
 class DownloadedTrackAdapter(
@@ -96,10 +97,7 @@ class DownloadedTrackAdapter(
                 }
             }
 
-            Glide.with(context)
-                .load(item.thumbnailUrl)
-                .placeholder(R.drawable.ic_music_note)
-                .into(binding.imageTrackThumbnail)
+            TrackArtwork.load(binding.imageTrackThumbnail, item.thumbnailUrl, item.youtubeId)
 
             binding.root.setOnClickListener {
                 if (isSelectionMode && !item.isDownloading) {

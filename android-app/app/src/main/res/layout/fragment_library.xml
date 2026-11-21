@@ -80,7 +80,7 @@
                 android:background="?selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_add"
                 app:tint="@color/spotify_white"
-                android:contentDescription="New Playlist" />
+                android:contentDescription="Create or import playlist" />
         </LinearLayout>
     </RelativeLayout>
 

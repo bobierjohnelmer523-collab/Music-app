@@ -127,6 +127,24 @@
             android:layout_marginTop="16dp"
             android:nestedScrollingEnabled="false" />
 
+        <!-- Official Spotify Charts Section -->
+        <TextView
+            android:id="@+id/text_charts_header"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Official Spotify Charts"
+            android:textColor="@color/spotify_white"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler_spotify_charts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:nestedScrollingEnabled="false" />
+
         <!-- Quick Picks / Recommendations Section -->
         <TextView
             android:id="@+id/text_section_header"

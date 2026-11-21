@@ -3,9 +3,6 @@ package com.spotifyclone.app.ui.adapter
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
-import com.bumptech.glide.Glide
-import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
-import com.spotifyclone.app.R
 import com.spotifyclone.app.databinding.ItemTrackBinding
 import com.spotifyclone.app.model.TrackDto
 
@@ -46,12 +43,7 @@ class TrackAdapter(
                 durationText
             }
 
-            Glide.with(binding.root.context)
-                .load(track.thumbnailUrl)
-                .placeholder(R.drawable.ic_music_note)
-                .error(R.drawable.ic_music_note)
-                .transition(DrawableTransitionOptions.withCrossFade())
-                .into(binding.imageTrackThumbnail)
+            TrackArtwork.load(binding.imageTrackThumbnail, track)
 
             binding.root.setOnClickListener {
                 onTrackClick(track, position)

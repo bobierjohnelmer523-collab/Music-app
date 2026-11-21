@@ -22,6 +22,17 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // Spotify OAuth Client ID from local.properties (never commit real keys)
+        val localProps = Properties().apply {
+            val f = rootProject.file("local.properties")
+            if (f.exists()) load(FileInputStream(f))
+        }
+        buildConfigField(
+            "String",
+            "SPOTIFY_CLIENT_ID",
+            "\"${localProps.getProperty("SPOTIFY_CLIENT_ID", "")}\""
+        )
     }
 
     signingConfigs {
@@ -63,6 +74,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 
     packaging {
@@ -108,4 +120,7 @@ dependencies {
 
     // NewPipe Extractor
     implementation(libs.newpipe.extractor)
+
+    // Custom Tabs for Spotify OAuth login
+    implementation(libs.androidx.browser)
 }

@@ -19,9 +19,12 @@ import com.spotifyclone.app.databinding.FragmentHomeBinding
 import com.spotifyclone.app.extractor.NewPipeExtractorHelper
 import com.spotifyclone.app.extractor.SourceBrokenException
 import com.spotifyclone.app.model.TrackDto
+import com.spotifyclone.app.spotify.SpotifyChartsFetcher
 import com.spotifyclone.app.ui.adapter.RecentGridAdapter
+import com.spotifyclone.app.ui.adapter.SpotifyChartAdapter
 import com.spotifyclone.app.ui.adapter.TrackAdapter
 import com.spotifyclone.app.ui.auth.AuthActivity
+import com.spotifyclone.app.ui.playlist.SpotifyPlaylistDetailFragment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -34,6 +37,7 @@ class HomeFragment : Fragment() {
 
     private lateinit var trackAdapter: TrackAdapter
     private lateinit var recentGridAdapter: RecentGridAdapter
+    private lateinit var chartAdapter: SpotifyChartAdapter
 
     private val quickPicks = mutableListOf<TrackDto>()
     private val recentItems = mutableListOf<RecentlyPlayed>()
@@ -52,6 +56,7 @@ class HomeFragment : Fragment() {
         setupProfileAvatar()
         setupRecentGrid()
         setupRecyclerView()
+        setupSpotifyCharts()
         setupFilterChips()
         observeRecentlyPlayed()
         loadQuickPicks()
@@ -148,6 +153,35 @@ class HomeFragment : Fragment() {
         }
     }
 
+    private fun setupSpotifyCharts() {
+        val charts = SpotifyChartsFetcher.FEATURED_CHARTS
+        chartAdapter = SpotifyChartAdapter(
+            charts = charts,
+            onChartClick = { chart ->
+                val fragment = SpotifyPlaylistDetailFragment.forChart(chart.id)
+                parentFragmentManager.beginTransaction()
+                    .replace(R.id.fragment_container, fragment)
+                    .addToBackStack(null)
+                    .commit()
+            }
+        )
+
+        binding.recyclerSpotifyCharts.apply {
+            layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+            adapter = chartAdapter
+        }
+
+        // Load #1-track artwork for each chart card in the background
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            for (chart in charts) {
+                val cover = SpotifyChartsFetcher.getChartCover(chart.id)
+                withContext(Dispatchers.Main) {
+                    if (_binding != null) chartAdapter.updateCover(chart.id, cover)
+                }
+            }
+        }
+    }
+
     private fun setupFilterChips() {
         val chips = listOf(
             binding.chipAll to "Top Hits 2024",
@@ -174,7 +208,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun observeRecentlyPlayed() {
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             // Clean up any previously seeded mock/placeholder items from the database
             withContext(Dispatchers.IO) {
                 val db = SpotifyApplication.instance.database
@@ -194,22 +228,25 @@ class HomeFragment : Fragment() {
             SpotifyApplication.instance.database.recentlyPlayedDao()
                 .getRecentItems()
                 .collectLatest { items ->
-                    if (items.isNotEmpty()) {
-                        recentItems.clear()
-                        recentItems.addAll(items)
-                        recentGridAdapter.updateItems(recentItems)
-                        binding.recyclerRecentGrid.visibility = View.VISIBLE
-                    } else {
-                        recentItems.clear()
-                        recentGridAdapter.updateItems(emptyList())
-                        binding.recyclerRecentGrid.visibility = View.GONE
+                    val b = _binding
+                    if (b != null) {
+                        if (items.isNotEmpty()) {
+                            recentItems.clear()
+                            recentItems.addAll(items)
+                            recentGridAdapter.updateItems(recentItems)
+                            b.recyclerRecentGrid.visibility = View.VISIBLE
+                        } else {
+                            recentItems.clear()
+                            recentGridAdapter.updateItems(emptyList())
+                            b.recyclerRecentGrid.visibility = View.GONE
+                        }
                     }
                 }
         }
     }
 
     private fun loadQuickPicks() {
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             val likedSongs = SpotifyApplication.instance.database.likedSongDao().getAllLikedSongsOnce()
             val algorithmQuery = if (likedSongs.isNotEmpty()) {
                 val artists = likedSongs.mapNotNull { it.artist }.filter { it.isNotBlank() }
@@ -243,7 +280,7 @@ class HomeFragment : Fragment() {
     private fun loadCustomQuery(query: String) {
         binding.progressBarHome.visibility = View.VISIBLE
 
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             val result = NewPipeExtractorHelper.searchYouTubeMusic(query)
             withContext(Dispatchers.Main) {
                 binding.progressBarHome.visibility = View.GONE

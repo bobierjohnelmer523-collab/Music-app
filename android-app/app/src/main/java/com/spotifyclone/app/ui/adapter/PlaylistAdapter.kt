@@ -15,7 +15,9 @@ import com.spotifyclone.app.model.PlaylistDto
 enum class LibraryItemType {
     LIKED_SONGS,
     DOWNLOADED_SONGS,
-    CUSTOM_PLAYLIST
+    CUSTOM_PLAYLIST,
+    SPOTIFY_PLAYLIST,
+    CONNECT_SPOTIFY
 }
 
 data class LibraryItem(
@@ -23,13 +25,15 @@ data class LibraryItem(
     val title: String,
     val details: String,
     val coverUrl: String? = null,
-    val playlistDto: PlaylistDto? = null
+    val playlistDto: PlaylistDto? = null,
+    val spotifyPlaylistId: String? = null,
+    val isImportedSpotifyPlaylist: Boolean = false
 )
 
 class PlaylistAdapter(
     private var items: List<LibraryItem>,
     private val onItemClick: (LibraryItem) -> Unit,
-    private val onOptionsClick: (PlaylistDto, View) -> Unit,
+    private val onOptionsClick: (LibraryItem, View) -> Unit,
     private var isGridView: Boolean = false
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
@@ -108,9 +112,10 @@ class PlaylistAdapter(
                     binding.imgPlaylistCover.imageTintList = null
                     binding.imgPlaylistCover.setColorFilter(Color.WHITE)
                 }
-                LibraryItemType.CUSTOM_PLAYLIST -> {
+                LibraryItemType.CUSTOM_PLAYLIST, LibraryItemType.SPOTIFY_PLAYLIST -> {
                     binding.imgPinIcon.visibility = View.GONE
-                    binding.btnPlaylistOptionsMenu.visibility = View.VISIBLE
+                    binding.btnPlaylistOptionsMenu.visibility =
+                        if (item.type == LibraryItemType.CUSTOM_PLAYLIST || item.isImportedSpotifyPlaylist) View.VISIBLE else View.GONE
                     binding.cardPlaylistCover.setBackgroundColor(context.getColor(R.color.spotify_card_grey))
                     binding.imgPlaylistCover.background = null
                     binding.imgPlaylistCover.scaleType = ImageView.ScaleType.CENTER_CROP
@@ -121,6 +126,7 @@ class PlaylistAdapter(
                         binding.imgPlaylistCover.clearColorFilter()
                         Glide.with(context)
                             .load(cover)
+                            .override(512, 512)
                             .placeholder(R.drawable.ic_library)
                             .error(R.drawable.ic_library)
                             .centerCrop()
@@ -130,6 +136,17 @@ class PlaylistAdapter(
                         binding.imgPlaylistCover.setColorFilter(context.getColor(R.color.spotify_green))
                     }
                 }
+                LibraryItemType.CONNECT_SPOTIFY -> {
+                    binding.imgPinIcon.visibility = View.GONE
+                    binding.btnPlaylistOptionsMenu.visibility = View.GONE
+                    binding.cardPlaylistCover.setBackgroundColor(context.getColor(R.color.spotify_card_grey))
+                    binding.imgPlaylistCover.background = null
+                    binding.imgPlaylistCover.scaleType = ImageView.ScaleType.CENTER
+                    binding.imgPlaylistCover.setImageResource(R.drawable.ic_music_note)
+                    binding.imgPlaylistCover.imageTintList = null
+                    binding.imgPlaylistCover.clearColorFilter()
+                    binding.imgPlaylistCover.setColorFilter(context.getColor(R.color.spotify_green))
+                }
             }
 
             binding.root.setOnClickListener {
@@ -137,9 +154,7 @@ class PlaylistAdapter(
             }
 
             binding.btnPlaylistOptionsMenu.setOnClickListener { view ->
-                item.playlistDto?.let { dto ->
-                    onOptionsClick(dto, view)
-                }
+                onOptionsClick(item, view)
             }
         }
     }
@@ -149,6 +164,8 @@ class PlaylistAdapter(
 
         fun bind(item: LibraryItem) {
             val context = itemView.context
+            binding.btnPlaylistGridOptions.visibility =
+                if (item.type == LibraryItemType.CUSTOM_PLAYLIST || item.isImportedSpotifyPlaylist) View.VISIBLE else View.GONE
             binding.textPlaylistGridTitle.text = item.title
             binding.textPlaylistGridDetails.text = item.details
 
@@ -171,7 +188,7 @@ class PlaylistAdapter(
                     binding.imgPlaylistGridCover.imageTintList = null
                     binding.imgPlaylistGridCover.setColorFilter(Color.WHITE)
                 }
-                LibraryItemType.CUSTOM_PLAYLIST -> {
+                LibraryItemType.CUSTOM_PLAYLIST, LibraryItemType.SPOTIFY_PLAYLIST -> {
                     binding.imgGridPinIcon.visibility = View.GONE
                     binding.cardPlaylistGridCover.setBackgroundColor(context.getColor(R.color.spotify_card_grey))
                     binding.imgPlaylistGridCover.background = null
@@ -183,6 +200,7 @@ class PlaylistAdapter(
                         binding.imgPlaylistGridCover.clearColorFilter()
                         Glide.with(context)
                             .load(cover)
+                            .override(512, 512)
                             .placeholder(R.drawable.ic_library)
                             .error(R.drawable.ic_library)
                             .centerCrop()
@@ -192,17 +210,31 @@ class PlaylistAdapter(
                         binding.imgPlaylistGridCover.setColorFilter(context.getColor(R.color.spotify_green))
                     }
                 }
+                LibraryItemType.CONNECT_SPOTIFY -> {
+                    binding.imgGridPinIcon.visibility = View.GONE
+                    binding.cardPlaylistGridCover.setBackgroundColor(context.getColor(R.color.spotify_card_grey))
+                    binding.imgPlaylistGridCover.background = null
+                    binding.imgPlaylistGridCover.scaleType = ImageView.ScaleType.CENTER
+                    binding.imgPlaylistGridCover.setImageResource(R.drawable.ic_music_note)
+                    binding.imgPlaylistGridCover.imageTintList = null
+                    binding.imgPlaylistGridCover.clearColorFilter()
+                    binding.imgPlaylistGridCover.setColorFilter(context.getColor(R.color.spotify_green))
+                }
             }
 
             binding.root.setOnClickListener {
                 onItemClick(item)
             }
 
+            binding.btnPlaylistGridOptions.setOnClickListener { view ->
+                onOptionsClick(item, view)
+            }
+
             binding.root.setOnLongClickListener { view ->
-                item.playlistDto?.let { dto ->
-                    onOptionsClick(dto, view)
+                if (item.playlistDto != null || item.isImportedSpotifyPlaylist) {
+                    onOptionsClick(item, view)
                 }
-                true
+                item.playlistDto != null || item.isImportedSpotifyPlaylist
             }
         }
     }

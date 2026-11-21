@@ -1,42 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
+<androidx.core.widget.NestedScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/spotify_black"
-    android:padding="24dp">
+    android:fillViewport="true"
+    android:overScrollMode="never">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/player_content_frame"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="20dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="8dp">
 
     <!-- Top bar: Collapse, Header, 3 dots share menu -->
     <ImageView
         android:id="@+id/btn_collapse"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:src="@drawable/ic_skip_previous"
-        android:rotation="-90"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:src="@drawable/ic_chevron_down"
         app:tint="@color/spotify_white"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
-    <TextView
-        android:id="@+id/text_now_playing_header"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="PLAYING FROM YOUTUBE MUSIC"
-        android:textColor="@color/spotify_light_grey"
-        android:textSize="11sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.08"
-        app:layout_constraintTop_toTopOf="@id/btn_collapse"
-        app:layout_constraintBottom_toBottomOf="@id/btn_collapse"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
     <ImageButton
         android:id="@+id/btn_more_menu"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
         android:background="?selectableItemBackgroundBorderless"
         android:src="@drawable/ic_more_vert"
         app:tint="@color/spotify_white"
@@ -49,10 +49,10 @@
         android:id="@+id/card_thumbnail"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="28dp"
-        android:layout_marginBottom="32dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="8dp"
+        android:layout_marginTop="18dp"
+        android:layout_marginBottom="24dp"
+        app:cardCornerRadius="10dp"
+        app:cardElevation="0dp"
         app:cardBackgroundColor="@color/spotify_card_grey"
         app:layout_constraintDimensionRatio="1:1"
         app:layout_constraintTop_toBottomOf="@id/btn_collapse"
@@ -77,7 +77,7 @@
         android:singleLine="true"
         android:marqueeRepeatLimit="marquee_forever"
         android:textColor="@color/spotify_white"
-        android:textSize="22sp"
+        android:textSize="24sp"
         android:textStyle="bold"
         app:layout_constraintBottom_toTopOf="@id/text_song_artist"
         app:layout_constraintStart_toStartOf="parent"
@@ -88,7 +88,7 @@
         android:id="@+id/text_song_artist"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp"
+        android:layout_marginBottom="18dp"
         android:ellipsize="end"
         android:maxLines="1"
         android:textColor="@color/spotify_light_grey"
@@ -110,23 +110,22 @@
         app:layout_constraintBottom_toBottomOf="@id/text_song_artist">
 
         <ImageButton
+            android:id="@+id/btn_blacklist_track"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_close"
+            app:tint="@color/spotify_white"
+            android:contentDescription="Don't play this song (Blacklist)" />
+
+        <ImageButton
             android:id="@+id/btn_add_to_playlist"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="?selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_add"
+            android:src="@drawable/ic_add_circle_outline"
             app:tint="@color/spotify_white"
             android:contentDescription="Add to Playlist" />
-
-        <ImageButton
-            android:id="@+id/btn_blacklist_track"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="8dp"
-            android:background="?selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_close"
-            app:tint="@color/spotify_light_grey"
-            android:contentDescription="Don't play this song (Blacklist)" />
     </LinearLayout>
 
     <!-- Seekbar & Timestamps -->
@@ -143,7 +142,7 @@
         android:id="@+id/text_current_time"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="28dp"
+        android:layout_marginBottom="20dp"
         android:text="0:00"
         android:textColor="@color/spotify_light_grey"
         android:textSize="12sp"
@@ -154,7 +153,7 @@
         android:id="@+id/text_total_time"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="28dp"
+        android:layout_marginBottom="20dp"
         android:text="0:00"
         android:textColor="@color/spotify_light_grey"
         android:textSize="12sp"
@@ -174,18 +173,22 @@
         <ImageButton
             android:id="@+id/btn_shuffle_mode"
             android:layout_width="0dp"
-            android:layout_height="44dp"
+            android:layout_height="52dp"
             android:layout_weight="1"
+            android:padding="7dp"
+            android:scaleType="fitCenter"
             android:background="?selectableItemBackgroundBorderless"
             android:src="@drawable/ic_shuffle"
-            app:tint="@color/spotify_white"
+            app:tint="@color/spotify_light_grey"
             android:contentDescription="Shuffle &amp; Repeat Settings" />
 
         <ImageButton
             android:id="@+id/btn_prev"
             android:layout_width="0dp"
-            android:layout_height="48dp"
+            android:layout_height="52dp"
             android:layout_weight="1"
+            android:padding="7dp"
+            android:scaleType="fitCenter"
             android:background="?selectableItemBackgroundBorderless"
             android:src="@drawable/ic_skip_previous"
             app:tint="@color/spotify_white" />
@@ -194,18 +197,21 @@
             android:id="@+id/btn_play_pause"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginEnd="16dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
             android:backgroundTint="@color/spotify_white"
             android:src="@drawable/ic_play"
             app:tint="@color/spotify_black"
-            app:fabCustomSize="64dp" />
+            app:fabCustomSize="80dp"
+            app:maxImageSize="40dp" />
 
         <ImageButton
             android:id="@+id/btn_next"
             android:layout_width="0dp"
-            android:layout_height="48dp"
+            android:layout_height="52dp"
             android:layout_weight="1"
+            android:padding="7dp"
+            android:scaleType="fitCenter"
             android:background="?selectableItemBackgroundBorderless"
             android:src="@drawable/ic_skip_next"
             app:tint="@color/spotify_white" />
@@ -220,6 +226,8 @@
                 android:id="@+id/btn_download_track"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:padding="7dp"
+                android:scaleType="fitCenter"
                 android:background="?selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_download"
                 app:tint="@color/spotify_white"
@@ -253,4 +261,143 @@
         </FrameLayout>
     </LinearLayout>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <LinearLayout
+        android:id="@+id/layout_lyrics_and_artist"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clipToPadding="false"
+        android:paddingTop="18dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="20dp"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_lyrics_preview"
+                android:layout_width="match_parent"
+                android:layout_height="270dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
+                app:cardBackgroundColor="#737373"
+                app:cardCornerRadius="18dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#606060"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                        android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Lyrics preview"
+                        android:textColor="@color/spotify_white"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/text_lyrics_status"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Loading lyrics…"
+                        android:textColor="#E6E6E6"
+                        android:textSize="14sp" />
+
+                    <androidx.core.widget.NestedScrollView
+                        android:id="@+id/scroll_lyrics_preview"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:layout_marginTop="4dp"
+                        android:fillViewport="false"
+                        android:overScrollMode="never">
+
+                        <LinearLayout
+                            android:id="@+id/layout_lyrics_lines"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+                    </androidx.core.widget.NestedScrollView>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_lyrics_artist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
+                app:cardBackgroundColor="#242424"
+                app:cardCornerRadius="18dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="14dp">
+
+                    <ImageView
+                        android:id="@+id/image_lyrics_artist"
+                        android:layout_width="54dp"
+                        android:layout_height="54dp"
+                        android:background="@drawable/bg_search_bar"
+                        android:contentDescription="Artist profile"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/ic_music_note" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Artist"
+                            android:textColor="@color/spotify_light_grey"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/text_lyrics_artist"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:textColor="@color/spotify_white"
+                            android:textSize="17sp"
+                            android:textStyle="bold"
+                            tools:text="Ariana Grande" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:src="@drawable/ic_chevron_down"
+                        android:rotation="-90"
+                        app:tint="@color/spotify_light_grey" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </LinearLayout>
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

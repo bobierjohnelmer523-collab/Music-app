@@ -15,10 +15,10 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.spotifyclone.app.R
 import com.spotifyclone.app.SpotifyApplication
+import com.spotifyclone.app.data.local.entities.DownloadedTrack
 import com.spotifyclone.app.data.local.entities.OfflineFolder
 import com.spotifyclone.app.data.local.entities.OfflineSongFolder
 import com.spotifyclone.app.databinding.FragmentDownloadsBinding
-import com.spotifyclone.app.model.TrackDto
 import com.spotifyclone.app.ui.adapter.DownloadItem
 import com.spotifyclone.app.ui.adapter.DownloadedTrackAdapter
 import com.spotifyclone.app.ui.dialog.CustomDialogHelper
@@ -62,17 +62,23 @@ class DownloadsFragment : Fragment() {
             tracks = filteredDisplayItems,
             onTrackClick = { item, _ ->
                 val completed = filteredDisplayItems.filter { !it.isDownloading }
-                val targetIndex = completed.indexOfFirst { it.youtubeId == item.youtubeId }.coerceAtLeast(0)
-                val trackDtos = completed.map { t ->
-                    TrackDto(
-                        youtubeId = t.youtubeId,
-                        title = t.title,
-                        artist = t.artist,
-                        durationSeconds = t.durationSeconds,
-                        thumbnailUrl = t.thumbnailUrl
+                val downloadedTracks = completed.mapNotNull { track ->
+                    val localPath = track.localUri ?: return@mapNotNull null
+                    DownloadedTrack(
+                        youtubeId = track.youtubeId,
+                        title = track.title,
+                        artist = track.artist,
+                        durationSeconds = track.durationSeconds,
+                        thumbnailUrl = track.thumbnailUrl,
+                        localUri = localPath
                     )
                 }
-                SpotifyApplication.instance.playbackManager.playQueue(trackDtos, targetIndex)
+                val targetIndex = downloadedTracks.indexOfFirst { it.youtubeId == item.youtubeId }
+                if (targetIndex < 0) {
+                    Toast.makeText(context, "Downloaded file is missing. Download this song again.", Toast.LENGTH_LONG).show()
+                } else {
+                    SpotifyApplication.instance.playbackManager.playDownloadedQueue(downloadedTracks, targetIndex)
+                }
             },
             onDeleteClick = { item ->
                 showDeleteDialog(item)
@@ -406,8 +412,9 @@ class DownloadsFragment : Fragment() {
                                 artist = t.artist,
                                 thumbnailUrl = t.thumbnailUrl,
                                 durationSeconds = t.durationSeconds,
-                                isDownloading = false,
-                                progressPercent = 100
+                            isDownloading = false,
+                            progressPercent = 100,
+                            localUri = t.localUri
                             )
                         )
                     }

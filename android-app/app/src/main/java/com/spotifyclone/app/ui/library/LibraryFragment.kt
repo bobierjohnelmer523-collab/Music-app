@@ -24,6 +24,11 @@ import com.spotifyclone.app.data.local.entities.LocalPlaylist
 import com.spotifyclone.app.databinding.FragmentLibraryBinding
 import com.spotifyclone.app.model.PlaylistDto
 import com.spotifyclone.app.model.PlaylistRequest
+import com.spotifyclone.app.model.SpotifyPlaylistSummary
+import com.spotifyclone.app.spotify.SpotifyAuthManager
+import com.spotifyclone.app.spotify.SpotifyImportStore
+import com.spotifyclone.app.spotify.SpotifyRepository
+import com.spotifyclone.app.spotify.coverUrl
 import com.spotifyclone.app.ui.adapter.LibraryItem
 import com.spotifyclone.app.ui.adapter.LibraryItemType
 import com.spotifyclone.app.ui.adapter.PlaylistAdapter
@@ -31,6 +36,7 @@ import com.spotifyclone.app.ui.auth.AuthActivity
 import com.spotifyclone.app.ui.dialog.CustomDialogHelper
 import com.spotifyclone.app.ui.downloads.DownloadsFragment
 import com.spotifyclone.app.ui.playlist.PlaylistDetailFragment
+import com.spotifyclone.app.ui.playlist.SpotifyPlaylistDetailFragment
 import com.spotifyclone.app.ui.search.SearchFragment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
@@ -45,6 +51,7 @@ class LibraryFragment : Fragment() {
     private lateinit var playlistAdapter: PlaylistAdapter
     private val libraryItems = mutableListOf<LibraryItem>()
     private val userPlaylists = mutableListOf<PlaylistDto>()
+    private val spotifyPlaylists = mutableListOf<SpotifyPlaylistSummary>()
 
     private var likedCount: Int = 0
     private var downloadedCount: Int = 0
@@ -52,16 +59,43 @@ class LibraryFragment : Fragment() {
 
     // Photo/GIF Picker for Playlist Creation
     private var pendingDialogPreview: ImageView? = null
+    private var pendingBackgroundPreview: ImageView? = null
     private var pendingCoverUri: String? = null
+    private var pendingBackgroundUri: String? = null
 
     private val pickMediaLauncher = registerForActivityResult(
-        ActivityResultContracts.GetContent()
+        ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
+            runCatching {
+                requireContext().contentResolver.takePersistableUriPermission(
+                    it,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
             val uriString = it.toString()
             pendingCoverUri = uriString
             pendingDialogPreview?.let { img ->
+                img.imageTintList = null
+                img.clearColorFilter()
                 Glide.with(this).load(it).centerCrop().into(img)
+            }
+        }
+    }
+
+    private val pickBackgroundLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            runCatching {
+                requireContext().contentResolver.takePersistableUriPermission(
+                    it,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+            pendingBackgroundUri = it.toString()
+            pendingBackgroundPreview?.let { image ->
+                Glide.with(this).load(it).centerCrop().into(image)
             }
         }
     }
@@ -77,6 +111,7 @@ class LibraryFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         ApiClient.init(requireContext())
+        SpotifyAuthManager.init(requireContext())
         setupProfileAvatar()
         setupRecyclerView()
         setupListeners()
@@ -84,6 +119,7 @@ class LibraryFragment : Fragment() {
         observeLikedSongsCount()
         observeDownloadsCount()
         loadLocalPlaylistsThenSync()
+        loadSpotifyPlaylists()
     }
 
     override fun onResume() {
@@ -91,6 +127,7 @@ class LibraryFragment : Fragment() {
         setupProfileAvatar()
         loadLocalPlaylistsInternal()
         syncPlaylistsWithBackend()
+        loadSpotifyPlaylists()
     }
 
     private fun setupProfileAvatar() {
@@ -126,24 +163,113 @@ class LibraryFragment : Fragment() {
         }
     }
 
+    private fun showImportDialog() {
+        val input = android.widget.EditText(requireContext()).apply {
+            hint = "Paste Spotify playlist link (open.spotify.com/playlist/...)"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            minLines = 3
+        }
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("Import Spotify Playlist")
+            .setMessage("Paste a public Spotify playlist link to add it to Your Library.")
+            .setView(input)
+            .setPositiveButton("Import") { _, _ ->
+                val url = input.text.toString().trim()
+                val playlistId = extractPlaylistId(url)
+                if (playlistId == null) {
+                    Toast.makeText(
+                        context,
+                        "Invalid Spotify playlist link",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return@setPositiveButton
+                }
+
+                // Fetch metadata and save
+                binding.progressLibrary.visibility = View.VISIBLE
+                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+                    val meta = SpotifyRepository.getPlaylistMeta(playlistId)
+                    withContext(Dispatchers.Main) {
+                        binding.progressLibrary.visibility = View.GONE
+                        if (meta == null) {
+                            Toast.makeText(
+                                context,
+                                "Couldn't load that playlist — it may be private",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            return@withContext
+                        }
+
+                        SpotifyImportStore.add(
+                            requireContext(),
+                            SpotifyImportStore.ImportedPlaylist(
+                                id = playlistId,
+                                title = meta.title,
+                                coverUrl = meta.coverUrl,
+                                addedAt = System.currentTimeMillis()
+                            )
+                        )
+
+                        val fragment = SpotifyPlaylistDetailFragment.forPlaylist(
+                            playlistId = playlistId,
+                            title = meta.title,
+                            description = meta.description,
+                            coverUrl = meta.coverUrl
+                        )
+                        parentFragmentManager.beginTransaction()
+                            .replace(R.id.fragment_container, fragment)
+                            .addToBackStack(null)
+                            .commit()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun extractPlaylistId(url: String): String? {
+        val pattern = """(?:open\.spotify\.com/playlist/|spotify:playlist:)([a-zA-Z0-9]+)""".toRegex()
+        return pattern.find(url)?.groupValues?.get(1)
+    }
+
+    private fun loadSpotifyPlaylists() {
+        if (!SpotifyAuthManager.isLoggedIn()) {
+            spotifyPlaylists.clear()
+            rebuildLibraryItems()
+            return
+        }
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            val playlists = SpotifyRepository.getMyPlaylists()
+            val user = SpotifyRepository.getCurrentUser()
+            user?.displayName?.let { SpotifyAuthManager.saveDisplayName(it) }
+            withContext(Dispatchers.Main) {
+                if (_binding == null) return@withContext
+                spotifyPlaylists.clear()
+                spotifyPlaylists.addAll(playlists)
+                rebuildLibraryItems()
+            }
+        }
+    }
+
     private fun observeLikedSongsCount() {
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             SpotifyApplication.instance.database.likedSongDao()
                 .getLikedCount()
                 .collectLatest { count ->
                     likedCount = count
-                    rebuildLibraryItems()
+                    if (_binding != null) rebuildLibraryItems()
                 }
         }
     }
 
     private fun observeDownloadsCount() {
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             SpotifyApplication.instance.database.downloadedTrackDao()
                 .getAllDownloadedTracks()
                 .collectLatest { list ->
                     downloadedCount = list.size
-                    rebuildLibraryItems()
+                    if (_binding != null) rebuildLibraryItems()
                 }
         }
     }
@@ -179,10 +305,31 @@ class LibraryFragment : Fragment() {
                                 .commit()
                         }
                     }
+                    LibraryItemType.SPOTIFY_PLAYLIST -> {
+                        item.spotifyPlaylistId?.let { spotifyId ->
+                            val fragment = SpotifyPlaylistDetailFragment.forPlaylist(
+                                playlistId = spotifyId,
+                                title = item.title,
+                                description = null,
+                                coverUrl = item.coverUrl
+                            )
+                            parentFragmentManager.beginTransaction()
+                                .replace(R.id.fragment_container, fragment)
+                                .addToBackStack(null)
+                                .commit()
+                        }
+                    }
+                    LibraryItemType.CONNECT_SPOTIFY -> {
+                        showImportDialog()
+                    }
                 }
             },
             onOptionsClick = { playlist, _ ->
-                showPlaylistOptionsMenu(playlist)
+                if (playlist.type == LibraryItemType.SPOTIFY_PLAYLIST) {
+                    showImportedSpotifyPlaylistOptions(playlist)
+                } else {
+                    playlist.playlistDto?.let(::showPlaylistOptionsMenu)
+                }
             },
             isGridView = isGridView
         )
@@ -238,6 +385,38 @@ class LibraryFragment : Fragment() {
             )
         }
 
+        // 4. Spotify: account playlists (if connected) + locally imported playlists
+        val apiPlaylistIds = spotifyPlaylists.map { it.id }.toSet()
+        if (SpotifyAuthManager.isLoggedIn()) {
+            for (sp in spotifyPlaylists) {
+                val count = sp.tracks?.total
+                items.add(
+                    LibraryItem(
+                        type = LibraryItemType.SPOTIFY_PLAYLIST,
+                        title = sp.name,
+                        details = "Spotify Playlist" +
+                            (count?.let { " • $it ${if (it == 1) "song" else "songs"}" } ?: ""),
+                        coverUrl = sp.coverUrl(),
+                        spotifyPlaylistId = sp.id
+                    )
+                )
+            }
+        }
+
+        for (imp in SpotifyImportStore.getAll(requireContext())) {
+            if (imp.id in apiPlaylistIds) continue
+            items.add(
+                LibraryItem(
+                    type = LibraryItemType.SPOTIFY_PLAYLIST,
+                    title = imp.title.ifBlank { "Spotify Playlist" },
+                    details = "Spotify Playlist • Imported",
+                    coverUrl = imp.coverUrl,
+                    spotifyPlaylistId = imp.id,
+                    isImportedSpotifyPlaylist = true
+                )
+            )
+        }
+
         libraryItems.clear()
         libraryItems.addAll(items)
         playlistAdapter.updateItems(libraryItems)
@@ -267,8 +446,19 @@ class LibraryFragment : Fragment() {
 
         // Create Playlist button
         binding.btnCreatePlaylist.setOnClickListener {
-            showCreatePlaylistDialog()
+            showAddLibraryMenu()
         }
+    }
+
+    private fun showAddLibraryMenu() {
+        AlertDialog.Builder(requireContext())
+            .setItems(arrayOf("Create Playlist", "Import Spotify Playlist")) { _, which ->
+                when (which) {
+                    0 -> showCreatePlaylistDialog()
+                    1 -> showImportDialog()
+                }
+            }
+            .show()
     }
 
     private fun setupFilterChips() {
@@ -331,7 +521,10 @@ class LibraryFragment : Fragment() {
         val textTitle = view.findViewById<TextView>(R.id.text_editor_dialog_title)
         val imgPreview = view.findViewById<ImageView>(R.id.img_editor_cover_preview)
         val btnPickFile = view.findViewById<TextView>(R.id.btn_pick_cover_file)
+        val imgBackgroundPreview = view.findViewById<ImageView>(R.id.img_editor_background_preview)
+        val btnPickBackground = view.findViewById<TextView>(R.id.btn_pick_background_file)
         val editCoverUrl = view.findViewById<EditText>(R.id.edit_playlist_cover_url)
+        val editBackgroundUrl = view.findViewById<EditText>(R.id.edit_playlist_background_url)
         val editTitle = view.findViewById<EditText>(R.id.edit_playlist_title)
         val editDesc = view.findViewById<EditText>(R.id.edit_playlist_description)
         val btnCancel = view.findViewById<TextView>(R.id.btn_cancel_playlist_editor)
@@ -341,10 +534,15 @@ class LibraryFragment : Fragment() {
         btnSave.text = "Create"
 
         pendingDialogPreview = imgPreview
+        pendingBackgroundPreview = imgBackgroundPreview
         pendingCoverUri = null
+        pendingBackgroundUri = null
 
         btnPickFile.setOnClickListener {
-            pickMediaLauncher.launch("image/*")
+            pickMediaLauncher.launch(arrayOf("image/*"))
+        }
+        btnPickBackground.setOnClickListener {
+            pickBackgroundLauncher.launch(arrayOf("image/*"))
         }
 
         val dialog = AlertDialog.Builder(requireContext())
@@ -362,6 +560,8 @@ class LibraryFragment : Fragment() {
             val desc = editDesc.text.toString().trim().takeIf { it.isNotBlank() }
             val urlText = editCoverUrl.text.toString().trim().takeIf { it.isNotBlank() }
             val cover = pendingCoverUri ?: urlText
+            val backgroundText = editBackgroundUrl.text.toString().trim().takeIf { it.isNotBlank() }
+            val background = pendingBackgroundUri ?: backgroundText
 
             if (title.isEmpty()) {
                 Toast.makeText(context, "Give your playlist a name", Toast.LENGTH_SHORT).show()
@@ -369,40 +569,68 @@ class LibraryFragment : Fragment() {
             }
 
             dialog.dismiss()
-            createPlaylist(title, desc, cover)
+            createPlaylist(title, desc, cover, background)
         }
 
         dialog.show()
     }
 
-    private fun createPlaylist(title: String, description: String?, coverUrl: String?) {
+    private fun createPlaylist(
+        title: String,
+        description: String?,
+        coverUrl: String?,
+        backgroundUrl: String?
+    ) {
         binding.progressLibrary.visibility = View.VISIBLE
 
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
+                val db = SpotifyApplication.instance.database
+                // Save the playlist locally first. A gallery URI is private to
+                // this device and cannot be uploaded as a normal cover URL.
+                val localId = db.playlistDao().insert(
+                    LocalPlaylist(
+                        title = title,
+                        description = description,
+                        coverUrl = coverUrl,
+                        isOfflineOnly = !ApiClient.isLoggedIn()
+                    )
+                )
+                var savedPlaylistId = localId
+
                 if (ApiClient.isLoggedIn()) {
-                    val response = ApiClient.getApi().createPlaylist(
-                        PlaylistRequest(title = title, description = description, coverUrl = coverUrl)
-                    )
-                    if (response.isSuccessful && response.body() != null) {
-                        val created = response.body()!!
-                        SpotifyApplication.instance.database.playlistDao().insert(
-                            LocalPlaylist(
-                                remoteId = created.id,
-                                title = created.title,
-                                description = created.description,
-                                coverUrl = created.coverUrl ?: coverUrl
-                            )
+                    runCatching {
+                        val serverCover = coverUrl?.takeIf {
+                            it.startsWith("https://", ignoreCase = true) ||
+                                it.startsWith("http://", ignoreCase = true)
+                        }
+                        ApiClient.getApi().createPlaylist(
+                            PlaylistRequest(title = title, description = description, coverUrl = serverCover)
                         )
-                    } else {
-                        SpotifyApplication.instance.database.playlistDao().insert(
-                            LocalPlaylist(title = title, description = description, coverUrl = coverUrl, isOfflineOnly = true)
-                        )
+                    }.getOrNull()?.let { response ->
+                        response.body()?.takeIf { response.isSuccessful }?.let { created ->
+                            val local = db.playlistDao().getPlaylistById(localId)
+                            if (local != null) {
+                                db.playlistDao().update(
+                                    local.copy(
+                                        remoteId = created.id,
+                                        title = created.title,
+                                        description = created.description,
+                                        coverUrl = created.coverUrl ?: coverUrl,
+                                        isOfflineOnly = false
+                                    )
+                                )
+                                savedPlaylistId = created.id
+                            }
+                        }
                     }
-                } else {
-                    SpotifyApplication.instance.database.playlistDao().insert(
-                        LocalPlaylist(title = title, description = description, coverUrl = coverUrl, isOfflineOnly = true)
-                    )
+                }
+
+                if (!backgroundUrl.isNullOrBlank()) {
+                    SpotifyApplication.instance.getSharedPreferences(
+                        "playlist_detail_preferences",
+                        android.content.Context.MODE_PRIVATE
+                    ).edit().putString("playlist_background_$savedPlaylistId", backgroundUrl).apply()
                 }
 
                 loadLocalPlaylistsInternal()
@@ -458,6 +686,68 @@ class LibraryFragment : Fragment() {
             .show()
     }
 
+    private fun showImportedSpotifyPlaylistOptions(item: LibraryItem) {
+        val playlistId = item.spotifyPlaylistId ?: return
+        val options = arrayOf("Open Playlist", "Download All Songs", "Delete Playlist")
+        AlertDialog.Builder(requireContext())
+            .setTitle(item.title)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> openSpotifyPlaylist(item)
+                    1 -> downloadSpotifyPlaylist(item)
+                    2 -> AlertDialog.Builder(requireContext())
+                        .setTitle("Delete Playlist")
+                        .setMessage("Remove \"${item.title}\" from your library?")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Delete") { _, _ ->
+                            SpotifyImportStore.remove(requireContext(), playlistId)
+                            rebuildLibraryItems()
+                        }
+                        .show()
+                }
+            }
+            .show()
+    }
+
+    private fun openSpotifyPlaylist(item: LibraryItem) {
+        val playlistId = item.spotifyPlaylistId ?: return
+        val fragment = SpotifyPlaylistDetailFragment.forPlaylist(
+            playlistId = playlistId,
+            title = item.title,
+            description = null,
+            coverUrl = item.coverUrl
+        )
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, fragment)
+            .addToBackStack(null)
+            .commit()
+    }
+
+    private fun downloadSpotifyPlaylist(item: LibraryItem) {
+        val playlistId = item.spotifyPlaylistId ?: return
+        binding.progressLibrary.visibility = View.VISIBLE
+        viewLifecycleOwner.lifecycleScope.launch {
+            val content = runCatching {
+                withContext(Dispatchers.IO) {
+                    SpotifyRepository.getPlaylistContent(playlistId)
+                }
+            }.getOrNull()
+            val b = _binding ?: return@launch
+            b.progressLibrary.visibility = View.GONE
+            val tracks = content?.tracks.orEmpty()
+            if (tracks.isEmpty()) {
+                Toast.makeText(context, "Couldn't load playlist songs", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            tracks.forEach { SpotifyApplication.instance.downloadHelper.downloadTrack(it) }
+            Toast.makeText(
+                context,
+                "Downloading ${tracks.size} songs for offline playback",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
     private fun showDeleteDialog(playlist: PlaylistDto) {
         CustomDialogHelper.showConfirmDialog(
             context = requireContext(),
@@ -478,7 +768,7 @@ class LibraryFragment : Fragment() {
         }
         Toast.makeText(context, "Playlist \"${playlist.title}\" deleted", Toast.LENGTH_SHORT).show()
 
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val db = SpotifyApplication.instance.database
                 val local = db.playlistDao().getPlaylistByRemoteId(playlist.id)
@@ -512,7 +802,7 @@ class LibraryFragment : Fragment() {
     }
 
     private fun loadLocalPlaylistsInternal() {
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             val db = SpotifyApplication.instance.database
             val localList = db.playlistDao().getAllPlaylistsOnce()
             val dtos = localList.map { p ->
@@ -555,7 +845,7 @@ class LibraryFragment : Fragment() {
     private fun syncPlaylistsWithBackend() {
         if (!ApiClient.isLoggedIn()) return
 
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val response = ApiClient.getApi().getPlaylists()
                 if (response.isSuccessful && response.body() != null) {

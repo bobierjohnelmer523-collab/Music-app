@@ -48,6 +48,9 @@ class SpotifyApplication : Application() {
         // 5. Initialize App Update Manager
         updateManager = AppUpdateManager(this)
 
+        // 6. Initialize Spotify OAuth session
+        com.spotifyclone.app.spotify.SpotifyAuthManager.init(this)
+
         // 6. Initialize Neon + Render Connection Monitor
         connectionManager = com.spotifyclone.app.api.BackendConnectionManager(this)
     }

@@ -189,11 +189,16 @@ object TrackOptionsHelper {
 
     private fun shareTrack(context: Context, track: TrackDto) {
         val artist = track.artist ?: "Unknown Artist"
-        val query = "${track.title} $artist"
-        val encodedQuery = URLEncoder.encode(query, "UTF-8")
-        val spotifySearchUrl = "https://open.spotify.com/search/$encodedQuery"
+        // Prefer the canonical Spotify track link when we have a Spotify id
+        val shareUrl = if (!track.spotifyId.isNullOrBlank()) {
+            "https://open.spotify.com/track/${track.spotifyId}"
+        } else {
+            val query = "${track.title} $artist"
+            val encodedQuery = URLEncoder.encode(query, "UTF-8")
+            "https://open.spotify.com/search/$encodedQuery"
+        }
 
-        val shareText = "Listen to \"${track.title}\" by $artist on Spotify:\n$spotifySearchUrl"
+        val shareText = "Listen to \"${track.title}\" by $artist on Spotify:\n$shareUrl"
 
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"

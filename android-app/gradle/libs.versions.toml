@@ -14,6 +14,7 @@ coroutines = "1.8.0"
 glide = "4.16.0"
 newpipe = "v0.27.1"
 desugar = "2.1.5"
+browser = "1.8.0"
 
 [libraries]
 android-desugar = { group = "com.android.tools", name = "desugar_jdk_libs_nio", version.ref = "desugar" }
@@ -50,6 +51,9 @@ glide-compiler = { group = "com.github.bumptech.glide", name = "compiler", versi
 
 # NewPipe Extractor
 newpipe-extractor = { group = "com.github.TeamNewPipe", name = "NewPipeExtractor", version.ref = "newpipe" }
+
+# AndroidX Browser (Custom Tabs for Spotify OAuth)
+androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

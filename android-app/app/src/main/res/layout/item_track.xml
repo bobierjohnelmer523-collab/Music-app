@@ -20,6 +20,16 @@
         android:src="@drawable/ic_circle_unchecked"
         android:visibility="gone" />
 
+    <TextView
+        android:id="@+id/text_track_number"
+        android:layout_width="22dp"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="10dp"
+        android:gravity="center"
+        android:textColor="@color/spotify_light_grey"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
     <androidx.cardview.widget.CardView
         android:layout_width="48dp"
         android:layout_height="48dp"

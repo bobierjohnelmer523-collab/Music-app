@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
     android:background="@drawable/bg_spotify_dialog"
-    android:padding="24dp">
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
 
     <TextView
         android:id="@+id/text_editor_dialog_title"
@@ -38,8 +42,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:scaleType="centerCrop"
-                android:src="@drawable/ic_library"
-                app:tint="@color/spotify_green" />
+                android:src="@drawable/ic_library" />
         </androidx.cardview.widget.CardView>
 
         <LinearLayout
@@ -90,6 +93,59 @@
         android:inputType="textUri"
         android:maxLines="1" />
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="72dp"
+            android:layout_height="48dp"
+            app:cardCornerRadius="6dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@color/spotify_card_grey">
+
+            <ImageView
+                android:id="@+id/img_editor_background_preview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_library" />
+        </androidx.cardview.widget.CardView>
+
+        <TextView
+            android:id="@+id/btn_pick_background_file"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="14dp"
+            android:background="@drawable/bg_pill_button_cancel"
+            android:paddingStart="14dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="8dp"
+            android:text="Choose background image or GIF"
+            android:textColor="@color/spotify_white"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <EditText
+        android:id="@+id/edit_playlist_background_url"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="8dp"
+        android:background="#1E1E1E"
+        android:hint="or paste background image / GIF URL"
+        android:inputType="textUri"
+        android:maxLines="1"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:textColor="@color/spotify_white"
+        android:textColorHint="@color/spotify_light_grey"
+        android:textSize="13sp" />
+
     <!-- Title Input -->
     <TextView
         android:layout_width="wrap_content"
@@ -139,11 +195,35 @@
         android:inputType="textCapSentences"
         android:maxLines="2" />
 
-    <!-- Action Buttons -->
+    <!-- Delete stays above the save and cancel controls in edit mode. -->
     <LinearLayout
+        android:id="@+id/layout_editor_delete"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="22dp"
+        android:layout_marginTop="16dp"
+        android:gravity="end"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/btn_delete_playlist"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:background="@drawable/bg_pill_button_cancel"
+            android:gravity="center"
+            android:paddingStart="18dp"
+            android:paddingEnd="18dp"
+            android:text="Delete Playlist"
+            android:textColor="#FF6B6B"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Action Buttons -->
+    <LinearLayout
+        android:id="@+id/layout_editor_actions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
         android:gravity="end"
         android:orientation="horizontal">
 
@@ -175,4 +255,5 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-</LinearLayout>
+    </LinearLayout>
+</ScrollView>

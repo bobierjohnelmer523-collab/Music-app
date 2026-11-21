@@ -13,18 +13,28 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.spotifyclone.app.R
 import com.spotifyclone.app.SpotifyApplication
 import com.spotifyclone.app.data.local.entities.RecentlyPlayed
 import com.spotifyclone.app.data.local.entities.RecentSearch
 import com.spotifyclone.app.databinding.FragmentSearchBinding
 import com.spotifyclone.app.extractor.NewPipeExtractorHelper
 import com.spotifyclone.app.extractor.SourceBrokenException
+import com.spotifyclone.app.model.ArtistDto
+import com.spotifyclone.app.model.SpotifyPlaylistSummary
 import com.spotifyclone.app.model.TrackDto
+import com.spotifyclone.app.spotify.SpotifyAuthManager
+import com.spotifyclone.app.spotify.SpotifyImportStore
+import com.spotifyclone.app.spotify.SpotifyRepository
+import com.spotifyclone.app.ui.adapter.ArtistAdapter
 import com.spotifyclone.app.ui.adapter.RecentItemDisplay
 import com.spotifyclone.app.ui.adapter.RecentSearchAdapter
 import com.spotifyclone.app.ui.adapter.SearchSuggestionAdapter
+import com.spotifyclone.app.ui.adapter.SpotifyPlaylistRowAdapter
 import com.spotifyclone.app.ui.adapter.TrackAdapter
 import com.spotifyclone.app.ui.dialog.TrackOptionsHelper
+import com.spotifyclone.app.ui.artist.ArtistDetailFragment
+import com.spotifyclone.app.ui.playlist.SpotifyPlaylistDetailFragment
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -39,8 +49,13 @@ class SearchFragment : Fragment() {
     private lateinit var recentSearchAdapter: RecentSearchAdapter
 
     private val searchResults = mutableListOf<TrackDto>()
+    private val spotifyPlaylistResults = mutableListOf<SpotifyPlaylistSummary>()
+    private val artistResults = mutableListOf<ArtistDto>()
     private val suggestions = mutableListOf<String>()
     private val recentItems = mutableListOf<RecentItemDisplay>()
+
+    private lateinit var spotifyPlaylistAdapter: SpotifyPlaylistRowAdapter
+    private lateinit var artistAdapter: ArtistAdapter
 
     private var suggestionJob: Job? = null
     private var isProgrammaticTextChange = false
@@ -69,7 +84,7 @@ class SearchFragment : Fragment() {
                 val track = searchResults[position]
                 SpotifyApplication.instance.playbackManager.playQueue(searchResults, position)
                 // Record in recently played so it appears in recent searches with cover art
-                lifecycleScope.launch(Dispatchers.IO) {
+                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
                     SpotifyApplication.instance.database.recentlyPlayedDao().recordRecentlyPlayed(
                         RecentlyPlayed(
                             title = track.title,
@@ -88,6 +103,44 @@ class SearchFragment : Fragment() {
         binding.recyclerSearchResults.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = trackAdapter
+        }
+
+        // Spotify playlist matches row (shown above track results when logged in)
+        spotifyPlaylistAdapter = SpotifyPlaylistRowAdapter(
+            playlists = spotifyPlaylistResults,
+            onPlaylistClick = { playlist ->
+                val fragment = SpotifyPlaylistDetailFragment.forPlaylist(
+                    playlistId = playlist.id,
+                    title = playlist.name,
+                    description = playlist.description,
+                    coverUrl = playlist.images?.maxByOrNull { it.width ?: 0 }?.url
+                        ?: playlist.images?.lastOrNull()?.url
+                )
+                parentFragmentManager.beginTransaction()
+                    .replace(R.id.fragment_container, fragment)
+                    .addToBackStack(null)
+                    .commit()
+            }
+        )
+        binding.recyclerSpotifyPlaylists.apply {
+            layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+            adapter = spotifyPlaylistAdapter
+        }
+
+        // Artist matches row (horizontal cards)
+        artistAdapter = ArtistAdapter(
+            artists = artistResults,
+            onArtistClick = { artist ->
+                val fragment = ArtistDetailFragment.forArtist(artist.name, artist.avatarUrl, null, artist.channelUrl)
+                parentFragmentManager.beginTransaction()
+                    .replace(R.id.fragment_container, fragment)
+                    .addToBackStack(null)
+                    .commit()
+            }
+        )
+        binding.recyclerArtists.apply {
+            layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+            adapter = artistAdapter
         }
 
         // 2. Search Autocomplete Suggestions Dropdown
@@ -130,7 +183,7 @@ class SearchFragment : Fragment() {
                     // Tap on recently played song -> play it immediately
                     SpotifyApplication.instance.playbackManager.playSingle(item.trackDto)
                     // Refresh its timestamp in recently played
-                    lifecycleScope.launch(Dispatchers.IO) {
+                    viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
                         SpotifyApplication.instance.database.recentlyPlayedDao().recordRecentlyPlayed(
                             RecentlyPlayed(
                                 title = item.trackDto.title,
@@ -149,7 +202,7 @@ class SearchFragment : Fragment() {
                 }
             },
             onDeleteClick = { item ->
-                lifecycleScope.launch(Dispatchers.IO) {
+                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
                     if (item.isQuery && item.queryText != null) {
                         SpotifyApplication.instance.database.recentSearchDao().deleteSearch(item.queryText)
                     } else if (item.playedId != null) {
@@ -167,7 +220,7 @@ class SearchFragment : Fragment() {
 
         // Clear All Recent Searches and Played
         binding.btnClearAllRecent.setOnClickListener {
-            lifecycleScope.launch(Dispatchers.IO) {
+            viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
                 SpotifyApplication.instance.database.recentSearchDao().clearAll()
                 SpotifyApplication.instance.database.recentlyPlayedDao().clearAll()
             }
@@ -240,7 +293,7 @@ class SearchFragment : Fragment() {
 
     private fun fetchSuggestionsDebounced(query: String) {
         suggestionJob?.cancel()
-        suggestionJob = lifecycleScope.launch {
+        suggestionJob = viewLifecycleOwner.lifecycleScope.launch {
             delay(180) // 180ms debounce
             val results = NewPipeExtractorHelper.fetchSearchSuggestions(query)
             if (isActive && results.isNotEmpty() &&
@@ -259,7 +312,7 @@ class SearchFragment : Fragment() {
 
     private fun switchToRecentSearchesMode() {
         binding.cardSearchSuggestions.visibility = View.GONE
-        binding.recyclerSearchResults.visibility = View.GONE
+        binding.layoutSearchResultsArea.visibility = View.GONE
         binding.searchProgress.visibility = View.GONE
 
         if (recentItems.isNotEmpty()) {
@@ -272,7 +325,7 @@ class SearchFragment : Fragment() {
     }
 
     private fun observeRecentSearches() {
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             combine(
                 SpotifyApplication.instance.database.recentSearchDao().getAllRecentSearches(),
                 SpotifyApplication.instance.database.recentlyPlayedDao().getAllRecentPlayed()
@@ -328,6 +381,7 @@ class SearchFragment : Fragment() {
                 combined.sortByDescending { it.timestamp }
                 combined.take(35)
             }.collectLatest { list ->
+                if (_binding == null) return@collectLatest
                 recentItems.clear()
                 recentItems.addAll(list)
                 recentSearchAdapter.updateItems(recentItems)
@@ -340,6 +394,12 @@ class SearchFragment : Fragment() {
     }
 
     private fun performSearch(query: String) {
+        // Spotify link/URI pasted -> import the playlist directly
+        if (SpotifyRepository.isSpotifyLink(query)) {
+            handleSpotifyLink(query)
+            return
+        }
+
         isSearching = true
         suggestionJob?.cancel()
         suggestions.clear()
@@ -349,21 +409,59 @@ class SearchFragment : Fragment() {
         binding.textSearchEmpty.visibility = View.GONE
         binding.layoutRecentSearchesContainer.visibility = View.GONE
         binding.cardSearchSuggestions.visibility = View.GONE
-        binding.recyclerSearchResults.visibility = View.VISIBLE
+        binding.layoutSearchResultsArea.visibility = View.VISIBLE
+        binding.layoutArtistsRow.visibility = View.GONE
+        binding.layoutSpotifyPlaylistsRow.visibility = View.GONE
+        artistResults.clear()
+        artistAdapter.notifyDataSetChanged()
+        spotifyPlaylistResults.clear()
+        spotifyPlaylistAdapter.setItems(emptyList())
 
         // Record query in recent searches
-        lifecycleScope.launch(Dispatchers.IO) {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             SpotifyApplication.instance.database.recentSearchDao().insertSearch(
                 RecentSearch(query = query, timestamp = System.currentTimeMillis())
             )
         }
 
-        lifecycleScope.launch(Dispatchers.IO) {
+        // Also look up matching Spotify playlists when connected
+        if (SpotifyAuthManager.isLoggedIn()) {
+            viewLifecycleOwner.lifecycleScope.launch {
+                val playlists = SpotifyRepository.searchPlaylists(query, limit = 10)
+                withContext(Dispatchers.Main) {
+                    if (_binding == null) return@withContext
+                    spotifyPlaylistResults.clear()
+                    spotifyPlaylistResults.addAll(playlists)
+                    spotifyPlaylistAdapter.setItems(spotifyPlaylistResults)
+                    binding.layoutSpotifyPlaylistsRow.visibility =
+                        if (playlists.isNotEmpty()) View.VISIBLE else View.GONE
+                }
+            }
+        }
+
+        // Search YouTube Music for artists
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            val artistResult = NewPipeExtractorHelper.searchYouTubeMusicArtists(query)
+            withContext(Dispatchers.Main) {
+                if (_binding == null) return@withContext
+                if (artistResult.isSuccess) {
+                    val artists = artistResult.getOrDefault(emptyList())
+                    artistResults.clear()
+                    artistResults.addAll(artists)
+                    artistAdapter.notifyDataSetChanged()
+                    binding.layoutArtistsRow.visibility =
+                        if (artists.isNotEmpty()) View.VISIBLE else View.GONE
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             val result = NewPipeExtractorHelper.searchYouTubeMusic(query)
 
             withContext(Dispatchers.Main) {
+                val b = _binding ?: return@withContext
                 isSearching = false
-                binding.searchProgress.visibility = View.GONE
+                b.searchProgress.visibility = View.GONE
 
                 if (result.isSuccess) {
                     val tracks = result.getOrDefault(emptyList())
@@ -372,19 +470,78 @@ class SearchFragment : Fragment() {
                     trackAdapter.updateTracks(searchResults)
 
                     if (tracks.isEmpty()) {
-                        binding.textSearchEmpty.visibility = View.VISIBLE
-                        binding.textSearchEmpty.text = "No results found for \"$query\""
+                        b.textSearchEmpty.visibility = View.VISIBLE
+                        b.textSearchEmpty.text = "No results found for \"$query\""
                     }
                 } else {
                     val error = result.exceptionOrNull()
                     if (error is SourceBrokenException) {
-                        binding.textSearchEmpty.visibility = View.VISIBLE
-                        binding.textSearchEmpty.text = "Source broken! Please update the app via GitHub Releases."
+                        b.textSearchEmpty.visibility = View.VISIBLE
+                        b.textSearchEmpty.text = "Source broken! Please update the app via GitHub Releases."
                     } else {
                         Toast.makeText(context, "Search error: ${error?.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
+        }
+    }
+
+    /** Handle a pasted Spotify link: open playlist import or explain unsupported types. */
+    private fun handleSpotifyLink(query: String) {
+        suggestionJob?.cancel()
+        isProgrammaticTextChange = true
+        binding.cardSearchSuggestions.visibility = View.GONE
+        binding.editSearchQuery.clearFocus()
+        hideKeyboard()
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            val playlistId = SpotifyRepository.parsePlaylistIdAsync(query)
+            if (playlistId == null) {
+                Toast.makeText(
+                    context,
+                    "Only Spotify playlist links are supported",
+                    Toast.LENGTH_LONG
+                ).show()
+                return@launch
+            }
+
+            // Fetch metadata (works for public playlists without login) and
+            // save the playlist to Your Library so it persists.
+            binding.searchProgress.visibility = View.VISIBLE
+            val meta = withContext(Dispatchers.IO) {
+                SpotifyRepository.getPlaylistMeta(playlistId)
+            }
+            binding.searchProgress.visibility = View.GONE
+
+            if (meta == null) {
+                Toast.makeText(
+                    context,
+                    "Couldn't load that playlist — it may be private",
+                    Toast.LENGTH_LONG
+                ).show()
+                return@launch
+            }
+
+            SpotifyImportStore.add(
+                requireContext(),
+                SpotifyImportStore.ImportedPlaylist(
+                    id = playlistId,
+                    title = meta.title,
+                    coverUrl = meta.coverUrl,
+                    addedAt = System.currentTimeMillis()
+                )
+            )
+
+            val fragment = SpotifyPlaylistDetailFragment.forPlaylist(
+                playlistId = playlistId,
+                title = meta.title,
+                description = meta.description,
+                coverUrl = meta.coverUrl
+            )
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, fragment)
+                .addToBackStack(null)
+                .commit()
         }
     }
 

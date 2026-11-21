@@ -2,7 +2,9 @@ package com.spotifyclone.app.ui
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.View
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -11,13 +13,16 @@ import com.spotifyclone.app.R
 import com.spotifyclone.app.SpotifyApplication
 import com.spotifyclone.app.databinding.ActivityMainBinding
 import com.spotifyclone.app.playback.MusicService
+import com.spotifyclone.app.spotify.SpotifyAuthManager
 import com.spotifyclone.app.ui.downloads.DownloadsFragment
 import com.spotifyclone.app.ui.home.HomeFragment
 import com.spotifyclone.app.ui.library.LibraryFragment
 import com.spotifyclone.app.ui.player.NowPlayingFragment
 import com.spotifyclone.app.ui.search.SearchFragment
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 
@@ -30,9 +35,6 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Start media service for background playback
-        startService(Intent(this, MusicService::class.java))
-
         setupBottomNavigation()
         setupMiniPlayer()
         setupSourceBrokenBanner()
@@ -44,6 +46,41 @@ class MainActivity : AppCompatActivity() {
 
         if (savedInstanceState == null) {
             loadFragment(HomeFragment())
+        }
+
+        handleSpotifyCallback(intent)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Start playback service while the activity is visible. Android can reject
+        // background service starts if this activity is launched from a background task.
+        try {
+            startService(Intent(this, MusicService::class.java))
+        } catch (e: IllegalStateException) {
+            Log.w("MainActivity", "Playback service start deferred while app is backgrounded", e)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleSpotifyCallback(intent)
+    }
+
+    /** Spotify OAuth redirect: spotifyclone://callback?code=...&state=... */
+    private fun handleSpotifyCallback(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (uri.scheme != "spotifyclone" || uri.host != "callback") return
+
+        lifecycleScope.launch {
+            val success = SpotifyAuthManager.handleCallback(uri)
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    this@MainActivity,
+                    if (success) "Spotify account connected" else "Spotify login failed",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         }
     }
 
@@ -91,10 +128,7 @@ class MainActivity : AppCompatActivity() {
                     binding.miniPlayerTitle.text = track.title
                     binding.miniPlayerArtist.text = track.artist ?: "Unknown Artist"
 
-                    Glide.with(this@MainActivity)
-                        .load(track.thumbnailUrl)
-                        .placeholder(R.drawable.ic_music_note)
-                        .into(binding.miniPlayerThumbnail)
+                    com.spotifyclone.app.ui.adapter.TrackArtwork.load(binding.miniPlayerThumbnail, track)
                 } else {
                     binding.miniPlayerContainer.visibility = View.GONE
                 }
