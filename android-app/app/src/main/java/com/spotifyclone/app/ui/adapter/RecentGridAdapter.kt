@@ -36,7 +36,13 @@ class RecentGridAdapter(
             binding.textRecentTitle.text = item.title
 
             if (item.type == "track") {
-                TrackArtwork.load(binding.imageRecentArt, item.thumbnailUrl, item.dataId)
+                TrackArtwork.load(
+                    binding.imageRecentArt,
+                    title = item.title,
+                    artist = item.subtitle,
+                    thumbnailUrl = item.thumbnailUrl,
+                    youtubeId = item.dataId
+                )
             } else {
                 com.bumptech.glide.Glide.with(binding.root.context)
                     .load(item.thumbnailUrl)

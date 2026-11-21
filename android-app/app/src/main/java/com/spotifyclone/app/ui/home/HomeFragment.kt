@@ -286,9 +286,22 @@ class HomeFragment : Fragment() {
                 binding.progressBarHome.visibility = View.GONE
 
                 if (result.isSuccess) {
+                    val initialTracks = result.getOrDefault(emptyList())
                     quickPicks.clear()
-                    quickPicks.addAll(result.getOrDefault(emptyList()))
+                    quickPicks.addAll(initialTracks)
                     trackAdapter.updateTracks(quickPicks)
+
+                    // Enrich quick picks with official Spotify counterpart album art in background
+                    viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+                        val enriched = SpotifyChartsFetcher.enrichWithITunes(initialTracks)
+                        withContext(Dispatchers.Main) {
+                            if (_binding != null && enriched.isNotEmpty()) {
+                                quickPicks.clear()
+                                quickPicks.addAll(enriched)
+                                trackAdapter.updateTracks(quickPicks)
+                            }
+                        }
+                    }
                 } else {
                     val error = result.exceptionOrNull()
                     if (error is SourceBrokenException) {

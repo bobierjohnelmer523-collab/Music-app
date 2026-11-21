@@ -63,6 +63,7 @@ class PlaybackManager(private val context: Context) {
     val repeatMode: StateFlow<RepeatMode> = _repeatMode
 
     private var currentPlayJob: Job? = null
+    private var isPreparingTrack = false
     private var repeatCountRemaining: Int = 0
     private val playedIndices = mutableSetOf<Int>()
 
@@ -135,8 +136,23 @@ class PlaybackManager(private val context: Context) {
                     if (playbackState == Player.STATE_READY) {
                         _durationMs.value = duration
                     } else if (playbackState == Player.STATE_ENDED) {
-                        handleTrackCompletion()
+                        if (!isPreparingTrack && currentMediaItem != null) {
+                            val dur = duration
+                            val pos = currentPosition
+                            // Only handle track completion if the song has truly played to the end
+                            // (within 3.5 seconds of duration) and has a valid duration > 3 seconds.
+                            if (dur > 3000L && pos >= (dur - 3500L)) {
+                                handleTrackCompletion()
+                            } else {
+                                Log.d("PlaybackManager", "Ignored premature STATE_ENDED: pos=$pos, dur=$dur, isPreparing=$isPreparingTrack")
+                            }
+                        }
                     }
+                }
+
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    Log.e("PlaybackManager", "ExoPlayer error: ${error.message}", error)
+                    _isPlaying.value = false
                 }
             })
         }
@@ -247,19 +263,22 @@ class PlaybackManager(private val context: Context) {
         if (currentIndex !in playlist.indices) return
         val track = playlist[currentIndex]
 
-        // 1. Cancel any active playback preparation job immediately
+        // 1. Mark preparation in progress so premature STATE_ENDED events from clearing the player are ignored
+        isPreparingTrack = true
+
+        // 2. Cancel any active playback preparation job immediately
         currentPlayJob?.cancel()
 
-        // 2. Immediately stop/pause previous audio to eliminate overlapping background playback
+        // 3. Immediately stop/pause previous audio to eliminate overlapping background playback
         exoPlayer?.pause()
         exoPlayer?.clearMediaItems()
 
-        // 3. Reset playback position and state immediately
+        // 4. Reset playback position and state immediately
         _progressMs.value = 0L
         _durationMs.value = (track.durationSeconds ?: 0) * 1000L
         _isPlaying.value = false
 
-        // 4. Update current track immediately for instant UI feedback
+        // 5. Update current track immediately for instant UI feedback
         _currentTrack.value = track
         playedIndices.add(currentIndex)
 
@@ -299,18 +318,22 @@ class PlaybackManager(private val context: Context) {
                         _currentTrack.value = resolved
                     } else {
                         withContext(Dispatchers.Main) {
+                            isPreparingTrack = false
                             Toast.makeText(
                                 context,
                                 "Couldn't find \"${track.title}\" on YouTube Music",
                                 Toast.LENGTH_SHORT
                             ).show()
-                            playNext()
+                            // Do not automatically switch away; let user decide what to play next
                         }
                         return@launch
                     }
                 }
 
-                if (!isActive) return@launch
+                if (!isActive) {
+                    isPreparingTrack = false
+                    return@launch
+                }
 
                 // 1. Check if track is downloaded locally
                 val offlineUris = offlineQueueLocalUris
@@ -319,6 +342,7 @@ class PlaybackManager(private val context: Context) {
                     val localFile = localPath?.let(::File)
                     if (localFile == null || !localFile.isFile || localFile.length() <= 0L) {
                         withContext(Dispatchers.Main) {
+                            isPreparingTrack = false
                             Toast.makeText(context, "Downloaded file is missing. Download this song again.", Toast.LENGTH_LONG).show()
                         }
                         return@launch
@@ -342,13 +366,20 @@ class PlaybackManager(private val context: Context) {
                                 Log.e("PlaybackManager", "Source broken exception detected!", error)
                                 _isSourceBroken.value = true
                             }
+                            withContext(Dispatchers.Main) {
+                                isPreparingTrack = false
+                                Toast.makeText(context, "Could not stream: ${error?.message ?: "Unknown error"}", Toast.LENGTH_SHORT).show()
+                            }
                             return@launch
                         }
                         Uri.parse(resolveResult.getOrThrow())
                     }
                 }
 
-                if (!isActive) return@launch
+                if (!isActive) {
+                    isPreparingTrack = false
+                    return@launch
+                }
 
                 // 3. Play stream in ExoPlayer
                 val mediaItem = MediaItem.fromUri(mediaUri)
@@ -358,6 +389,10 @@ class PlaybackManager(private val context: Context) {
                     play()
                 }
                 _isSourceBroken.value = false
+
+                // Allow player buffer to populate before listening for ended events
+                kotlinx.coroutines.delay(1200)
+                isPreparingTrack = false
 
                 // 4. Asynchronously pre-fetch next tracks in background for instant playback on skip/next
                 val nextIdx = currentIndex + 1
@@ -389,6 +424,7 @@ class PlaybackManager(private val context: Context) {
                 }
 
             } catch (e: Exception) {
+                isPreparingTrack = false
                 if (e is kotlinx.coroutines.CancellationException) {
                     return@launch
                 }

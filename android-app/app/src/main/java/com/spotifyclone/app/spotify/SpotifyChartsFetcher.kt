@@ -117,22 +117,52 @@ object SpotifyChartsFetcher {
 
     // ---------------- iTunes enrichment ----------------
 
-    /** Fill in missing artwork/duration via iTunes Search (no key required). */
+    fun isYouTubeThumbnail(url: String?): Boolean {
+        if (url.isNullOrBlank()) return true
+        return url.contains("ytimg.com") ||
+               url.contains("ggpht.com") ||
+               url.contains("googleusercontent.com") ||
+               url.contains("/vi/") ||
+               url.contains("youtube.com")
+    }
+
+    /** Fill in missing artwork/duration or replace YouTube thumbnails with official Spotify/iTunes album art. */
     suspend fun enrichWithITunes(tracks: List<TrackDto>): List<TrackDto> = coroutineScope {
         tracks.map { track ->
             async {
-                if (track.thumbnailUrl != null && track.durationSeconds != null) {
+                val hasOfficialArt = track.thumbnailUrl != null && !isYouTubeThumbnail(track.thumbnailUrl)
+                if (hasOfficialArt && track.durationSeconds != null) {
                     return@async track
                 }
                 val meta = fetchITunesMeta(track)
                 if (meta.artworkUrl != null || meta.durationSeconds != null) {
                     track.copy(
-                        thumbnailUrl = track.thumbnailUrl ?: meta.artworkUrl,
+                        thumbnailUrl = if (hasOfficialArt) track.thumbnailUrl else (meta.artworkUrl ?: track.thumbnailUrl),
                         durationSeconds = track.durationSeconds ?: meta.durationSeconds
                     )
                 } else track
             }
         }.awaitAll()
+    }
+
+    suspend fun fetchOfficialArtwork(title: String, artist: String?): String? {
+        val cleanTitle = title
+            .replace(Regex("(?i)\\s*[\\[(](?:feat|ft|with)[^\\])]*[\\])]"), "")
+            .replace(Regex("(?i)\\s*-\\s*(?:feat|ft|with)\\b.*"), "")
+            .replace(Regex("(?i)\\s*[\\[(](?:official|music|video|audio|lyrics?|visualizer|remastered|version)[^\\])]*[\\])]"), "")
+            .trim()
+        val cleanArtist = artist?.trim()
+            ?.replace(Regex("(?i)\\s*[\\[(](?:feat|ft|with)[^\\])]*[\\])]"), "")
+            ?.split(Regex("[,&/]|(?i)\\s+feat\\.?\\s+|\\s+ft\\.?\\s+"))
+            ?.firstOrNull()
+            ?.trim()
+
+        val track = TrackDto(
+            youtubeId = "",
+            title = cleanTitle.ifBlank { title },
+            artist = cleanArtist
+        )
+        return fetchITunesMeta(track).artworkUrl
     }
 
     private suspend fun fetchITunesMeta(track: TrackDto): ITunesMeta {

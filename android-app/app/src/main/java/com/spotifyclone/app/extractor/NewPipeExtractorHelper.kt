@@ -667,7 +667,7 @@ object NewPipeExtractorHelper {
         }
     }
 
-    private fun fetchSearchTracks(query: String, limit: Int): Result<List<TrackDto>> = try {
+    internal fun fetchSearchTracks(query: String, limit: Int): Result<List<TrackDto>> = try {
         val extractor = ServiceList.YouTube.getSearchExtractor(query, listOf("music_songs"), "")
         extractor.fetchPage()
         val results = mutableListOf<TrackDto>()

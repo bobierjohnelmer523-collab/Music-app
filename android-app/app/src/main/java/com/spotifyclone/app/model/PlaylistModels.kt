@@ -7,8 +7,8 @@ data class TrackDto(
     @SerializedName("youtubeId") val youtubeId: String,
     @SerializedName("title") val title: String,
     @SerializedName("artist") val artist: String?,
-    @SerializedName("durationSeconds") val durationSeconds: Long?,
-    @SerializedName("thumbnailUrl") val thumbnailUrl: String?,
+    @SerializedName("durationSeconds") val durationSeconds: Long? = null,
+    @SerializedName("thumbnailUrl") val thumbnailUrl: String? = null,
     @SerializedName("position") val position: Int? = 0,
     // Spotify catalog id when this track originated from Spotify metadata.
     // youtubeId stays "" until NewPipe resolves the YouTube Music audio match.
